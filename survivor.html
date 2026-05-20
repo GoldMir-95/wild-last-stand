@@ -464,6 +464,16 @@ canvas{display:block;}
   <div style="text-align:center;font-size:11px;color:rgba(160,180,210,0.5);margin-top:-8px;letter-spacing:0.5px;">
     🖱️ 우클릭 / 📱 꾹 눌러 상세보기
   </div>
+  <!-- 리롤 버튼 행 -->
+  <div id="_cardRerollRow" style="display:none;justify-content:center;align-items:center;gap:14px;margin:6px 0 2px;">
+    <button id="_rerollBtn" style="display:flex;align-items:center;gap:8px;padding:9px 22px;border-radius:100px;
+      border:1px solid rgba(80,180,255,0.45);background:rgba(10,28,60,0.9);color:#80c8ff;
+      font-family:'Jua',sans-serif;font-size:14px;cursor:pointer;transition:all 0.18s;
+      box-shadow:0 2px 12px rgba(40,120,255,0.18);">
+      🔄 리롤 &nbsp;<span style="color:#ffe080;font-size:12px;">💎 1</span>
+    </button>
+    <span style="font-size:12px;color:#5a7a9a;">보유 <b id="_rerollGemCount" style="color:#c9a84c;">0</b> 💎</span>
+  </div>
   <span class="skip-btn" id="skipCardBtn">건너뛰기</span>
 </div>
 
@@ -1501,6 +1511,7 @@ let meta = JSON.parse(localStorage.getItem(META_KEY) || JSON.stringify({
 // 구버전 호환성
 if (meta.ascension === undefined) meta.ascension = 0;
 if (meta.maxAscension === undefined) meta.maxAscension = 0;
+// 다이아는 prem.gems 사용 (기존 💎 통합)
 // 구버전 데이터 정리
 delete meta.coins;
 delete meta.upgrades;
@@ -5663,6 +5674,10 @@ function battleWon() {
   // 골드 드롭: 일반전+40, 엘리트+65, 보스+100 (황금 우상 유물 시 +20 추가)
   const goldGain = (bt.isBoss ? 100 : bt.isElite ? 65 : 40) + relicBonus;
   gs.gold += goldGain;
+  // 💎 다이아 지급 (보스+3, 엘리트+2, 일반+1, 무결점+1)
+  const _diamondGain = (bt.isBoss ? 3 : bt.isElite ? 2 : 1) + (bt._noDamageThisBattle ? 1 : 0);
+  prem.gems = (prem.gems || 0) + _diamondGain;
+  if (typeof savePremium === 'function') savePremium();
   // gs.totalKills는 killEnemy()에서 이미 실시간으로 누적되므로 여기서 중복 합산 제거
   // 미션 추적
   trackMission('kills', gs.player.kills);
@@ -11152,6 +11167,23 @@ function showCardSelection(onDone, opts) {
     });
     return w;
   }
+  // ── 카드 생성 헬퍼 (리롤 시 재사용) ──
+  function _pickCards(excludeIds) {
+    const _basePool = noDupe
+      ? CARD_POOL.filter(c => !deckIds.has(c.id) && !excludeIds.has(c.id))
+      : CARD_POOL.filter(c => !excludeIds.has(c.id));
+    const _fallback = CARD_POOL.filter(c => !excludeIds.has(c.id));
+    let _w = buildWeighted(_basePool.length >= count ? _basePool : (_fallback.length ? _fallback : CARD_POOL));
+    const _result = [], _seen = new Set();
+    let _s = 0;
+    while(_result.length < count && _w.length > 0 && ++_s < 1000) {
+      const idx = Math.floor(Math.random() * _w.length);
+      const c = _w.splice(idx, 1)[0];
+      if(!_seen.has(c.id)){ _seen.add(c.id); _result.push(c); }
+    }
+    return _result;
+  }
+
   const newPool  = noDupe ? CARD_POOL.filter(c => !deckIds.has(c.id)) : CARD_POOL;
   const fullPool = CARD_POOL;
   let weighted = buildWeighted(newPool.length >= count ? newPool : fullPool);
@@ -11170,6 +11202,9 @@ function showCardSelection(onDone, opts) {
     if(onDone) onDone(); else showMapScreen();
     return;
   }
+
+  // 리롤: 이미 보여준 카드 id 누적 (같은 카드 반복 등장 방지)
+  const _shownInSession = new Set(selected.map(c => c.id));
 
   const row = document.getElementById('cardRow');
   row.innerHTML = '';
@@ -11222,7 +11257,8 @@ function showCardSelection(onDone, opts) {
   function hideCardDetail() { _detailTip.style.display = 'none'; }
   document.addEventListener('click', hideCardDetail, { once: true });
 
-  selected.forEach((card, _cardIdx) => {
+  // 카드 행 렌더링 (초기 + 리롤 공용)
+  function _renderCardRow(cardList) { cardList.forEach((card, _cardIdx) => {
     const el = document.createElement('div');
     el.className = `card ${card.rarity}`;
     // 카드별 슬라이드인 딜레이 (0ms, 80ms, 160ms…)
@@ -11283,6 +11319,7 @@ function showCardSelection(onDone, opts) {
     el.onclick = () => {
       if (bt && bt._cardSelectBlocked) return;
       hideCardDetail();
+      _hideRerollBtn();
       // 선택 flash 이펙트
       el.style.animation = 'cardPickFlash 0.45s ease-out both';
       row.querySelectorAll('.card').forEach(c => { if(c!==el){ c.style.transition='opacity 0.25s'; c.style.opacity='0'; c.onclick=null; } });
@@ -11343,13 +11380,77 @@ function showCardSelection(onDone, opts) {
       }
     };
     row.appendChild(el);
-  });
+  }); } // _renderCardRow 끝
+  _renderCardRow(selected); // 초기 렌더링
 
   const skipBtn = document.getElementById('skipCardBtn');
   skipBtn.onclick = () => {
     skipBtn.onclick = null;
+    _hideRerollBtn();
     if(onDone) onDone(); else showMapScreen();
   };
+
+  // ── 💎 리롤 버튼 ──
+  const _rerollRow = document.getElementById('_cardRerollRow');
+  const _rerollBtn = document.getElementById('_rerollBtn');
+  const _rerollGemCount = document.getElementById('_rerollGemCount');
+
+  function _hideRerollBtn() {
+    if (_rerollRow) _rerollRow.style.display = 'none';
+    if (_rerollBtn) _rerollBtn.onclick = null;
+  }
+  function _updateRerollBtn() {
+    if (!_rerollRow) return;
+    const gems = prem.gems || 0;
+    _rerollGemCount.textContent = gems;
+    const canReroll = gems >= 1;
+    _rerollBtn.style.opacity = canReroll ? '1' : '0.38';
+    _rerollBtn.style.cursor = canReroll ? 'pointer' : 'not-allowed';
+    _rerollBtn.style.borderColor = canReroll ? 'rgba(80,180,255,0.5)' : 'rgba(80,80,80,0.3)';
+  }
+
+  // 리롤 실행 함수
+  function _executeReroll() {
+    if ((prem.gems || 0) < 1) { showToast('💎 다이아가 부족합니다!', 1200); return; }
+    prem.gems--;
+    if (typeof savePremium === 'function') savePremium();
+    playSound(660, 0.15, 'sine', 0.06); playSound(880, 0.12, 'sine', 0.05);
+
+    // 새 카드 뽑기 (이미 보여준 카드 제외)
+    const _newCards = _pickCards(_shownInSession);
+    _newCards.forEach(c => _shownInSession.add(c.id));
+
+    if (_newCards.length === 0) { showToast('더 이상 새 카드가 없습니다', 1500); _updateRerollBtn(); return; }
+
+    // 카드 행 갱신 (슬라이드아웃 → 슬라이드인)
+    row.querySelectorAll('.card').forEach(c => {
+      c.style.transition = 'all 0.18s ease';
+      c.style.opacity = '0'; c.style.transform = 'translateY(-20px) scale(0.9)';
+    });
+    setTimeout(() => {
+      row.innerHTML = '';
+      _renderCardRow(_newCards);
+      requestAnimationFrame(() => {
+        row.querySelectorAll('.card').forEach((c, i) => {
+          c.style.opacity = '0'; c.style.transform = 'translateY(28px) scale(0.93)';
+          setTimeout(() => {
+            c.style.transition = 'opacity 0.28s ease, transform 0.28s cubic-bezier(0.16,1,0.3,1)';
+            c.style.opacity = '1'; c.style.transform = 'translateY(0) scale(1)';
+          }, i * 60);
+        });
+      });
+      _updateRerollBtn();
+    }, 200);
+
+    showToast(`🔄 리롤! 💎 ${prem.gems} 남음`, 1000);
+  }
+
+  if (_rerollRow) {
+    _rerollRow.style.display = 'flex';
+    _updateRerollBtn();
+    _rerollBtn.onclick = _executeReroll;
+  }
+
   // ── 전투 결과 배너 (battleWon 직후 카드 선택 시만 표시) ──
   const _prevResultEl = document.getElementById('_btResultBanner');
   if (_prevResultEl) _prevResultEl.remove();
