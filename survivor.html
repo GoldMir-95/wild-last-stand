@@ -5339,6 +5339,11 @@ function startBattle(isElite, isBoss) {
     miniChallenge: null, // 현재 미니 도전
     _miniChallengeHitThisWave: false,
     _noDamageThisBattle: true, // 무결점 클리어 추적
+    // ── 돌발 이벤트 ──
+    _usedEventIds: new Set(),  // 이번 전투에서 사용한 이벤트 id 집합
+    _starPowerSecs: 0,         // 별의 가호 남은 초
+    _berserkSecs: 0,           // 광란 남은 초
+    _berserkMult: 1,           // 광란 이동속도 배율 (1.6 when active)
     // ── ACT 전용 환경 메카닉 ──
     actMechTimer: 0,   // ACT 메카닉 타이머
     icePatches: [],    // ACT2 빙판 구역
@@ -5571,6 +5576,9 @@ function startBattleTimers(isElite, isBoss) {
     bt.battleTime++;
     gs.totalTime++;
     bt.waveTimer++;
+    // 돌발 이벤트 타임드 이펙트 카운트다운
+    if (bt._starPowerSecs > 0) { bt._starPowerSecs--; if (bt._starPowerSecs === 0) showToast('🌟 별의 가호 종료', 1200); }
+    if (bt._berserkSecs  > 0) { bt._berserkSecs--;  if (bt._berserkSecs  === 0) { bt._berserkMult = 1; showToast('🔥 광란 종료', 1200); } }
     if (!bt.isBoss && bt.waveTimer >= bt.waveDuration) {
       bt.waveTimer = 0;
       bt.wave++;
@@ -5600,6 +5608,10 @@ function startBattleTimers(isElite, isBoss) {
       Audio.sfx.waveComplete();
       collectAllItems(() => {
         showWaveNotif(`WAVE ${bt.wave} / ${bt.wavesTotal}`, `✓ WAVE ${clearedWave} CLEAR`);
+        // 돌발 이벤트 (일반 전투 2웨이브부터, 45% 확률)
+        if (!bt.isBoss && !bt.isElite && bt.wave > 1 && Math.random() < 0.45) {
+          setTimeout(() => { if (bt && !bt.won) tryTriggerBattleEvent(); }, 1600);
+        }
       });
     }
     // 보스 전투는 시간 제한 없이 처치가 목표 — 자동 win 없음
@@ -5616,6 +5628,136 @@ function stopBattleTimers() {
   if (!bt) return; // bt가 null이면 타이머도 없음
   if (bt.waveInterval) { clearInterval(bt.waveInterval); bt.waveInterval = null; }
   if (bt.spawnId)      { clearInterval(bt.spawnId);      bt.spawnId = null; }
+}
+
+// ═══════════════════════════════════════════════
+//  전투 돌발 이벤트 시스템
+// ═══════════════════════════════════════════════
+const BATTLE_EVENTS = [
+  { id:'discharge',    emoji:'⚡', name:'순간 방전',    desc:'모든 적 HP 30% 즉시 감소',       color:'#60c8ff', kind:'good',
+    apply(){
+      let hit=0;
+      bt.enemies.forEach(e=>{ if(!e.isBoss&&e.hp>1){ e.hp=Math.max(1,Math.floor(e.hp*0.70)); hit++; spawnP(e.x,e.y,'#60c8ff',5,3); } });
+      playSound(220,0.3,'sawtooth',0.06); playSound(440,0.25,'sawtooth',0.05);
+    }
+  },
+  { id:'gold_rain',    emoji:'💰', name:'황금 소나기',  desc:'전장에 골드 코인 6개 낙하',       color:'#ffd060', kind:'good',
+    apply(){
+      const cx=(bt.cam||{x:0}).x, cy=(bt.cam||{x:0,y:0}).y;
+      for(let k=0;k<6;k++) bt.items.push({x:cx+120+Math.random()*560,y:cy+120+Math.random()*560,type:'gold',_eventGold:28});
+      playSound(660,0.2,'sine',0.08); playSound(880,0.18,'sine',0.07);
+    }
+  },
+  { id:'freeze_wave',  emoji:'❄️', name:'전장 빙결',    desc:'4초간 모든 적 동결',              color:'#80e8ff', kind:'good',
+    apply(){
+      bt.enemies.forEach(e=>{ if(!e.isBoss){ e.frozen=240; spawnP(e.x,e.y,'#80e8ff',6,3); } });
+      playSound(880,0.2,'sine',0.08); playSound(1100,0.15,'sine',0.07);
+    }
+  },
+  { id:'heal_drop',    emoji:'💊', name:'구급 상자',    desc:'대형 회복 아이템 출현 (HP+40%)',  color:'#ff8888', kind:'good',
+    apply(){
+      const p=gs.player;
+      bt.items.push({x:p.x+(Math.random()-.5)*60,y:p.y+(Math.random()-.5)*60,type:'hp_large'});
+      playSound(528,0.25,'sine',0.1); playSound(660,0.2,'sine',0.08);
+    }
+  },
+  { id:'star_power',   emoji:'🌟', name:'별의 가호',    desc:'8초간 공격력 +50%',               color:'#ffe080', kind:'good',
+    apply(){
+      bt._starPowerSecs=8;
+      playSound(784,0.25,'sine',0.09); playSound(988,0.22,'sine',0.08); playSound(1175,0.18,'sine',0.07);
+    }
+  },
+  { id:'shield_gift',  emoji:'🛡️', name:'전장의 가호',  desc:'보호막 1 즉시 부여',              color:'#80c0ff', kind:'good',
+    apply(){
+      gs.shieldCount=(gs.shieldCount||0)+1; gs.skills.shield=(gs.skills.shield||0)+1;
+      playSound(660,0.25,'sine',0.1); playSound(880,0.2,'sine',0.08);
+    }
+  },
+  { id:'reinforcement',emoji:'👹', name:'긴급 증원',    desc:'적 5마리 즉시 추가 소환!',         color:'#ff6060', kind:'bad',
+    apply(){
+      const diff=bt.diffMult,act=gs.act,actHpBonus=act===1?0:act===2?1.3:2.8;
+      const hpM=(1.0+actHpBonus)*diff;
+      const cx=(bt.cam||{x:0}).x,cy=(bt.cam||{x:0,y:0}).y;
+      for(let k=0;k<5;k++){
+        const side=Math.floor(Math.random()*4);
+        let ex,ey;
+        if(side===0){ex=cx+Math.random()*800;ey=cy-40;}
+        else if(side===1){ex=cx+Math.random()*800;ey=cy+840;}
+        else if(side===2){ex=cx-40;ey=cy+Math.random()*800;}
+        else{ex=cx+840;ey=cy+Math.random()*800;}
+        bt.enemies.push({x:ex,y:ey,size:16,speed:1.5,hp:Math.ceil(6*hpM),maxHp:Math.ceil(6*hpM),color:'#ff6080',type:'basic',hitFlash:0});
+      }
+      playSound(200,0.3,'sawtooth',0.08); playSound(160,0.25,'sawtooth',0.07);
+    }
+  },
+  { id:'berserk',      emoji:'🔥', name:'광란의 질주',  desc:'10초간 적 이동속도 +60%!',        color:'#ff8040', kind:'bad',
+    apply(){
+      bt._berserkMult=1.6; bt._berserkSecs=10;
+      playSound(180,0.3,'sawtooth',0.09); playSound(240,0.25,'sawtooth',0.07);
+    }
+  },
+  { id:'meteor',       emoji:'☄️', name:'운석 낙하',    desc:'전장 4곳에 폭발 낙하',            color:'#ffa060', kind:'neutral',
+    apply(){
+      const cx=(bt.cam||{x:0}).x,cy=(bt.cam||{x:0,y:0}).y;
+      for(let k=0;k<4;k++){
+        setTimeout(()=>{
+          if(!bt||bt.won)return;
+          const mx=cx+80+Math.random()*640,my=cy+80+Math.random()*640;
+          bt.explosions.push({x:mx,y:my,maxRadius:80,radius:0,timer:16});
+          bt.enemies.forEach(e=>{ if(Math.hypot(e.x-mx,e.y-my)<80) damageEnemy(e,8); });
+          spawnP(mx,my,'#ff8040',14,5);
+          playSound(100+k*20,0.3,'sawtooth',0.05);
+        }, k*450);
+      }
+    }
+  },
+  { id:'mini_elite',   emoji:'💀', name:'정예 침입',    desc:'강력한 정예 적! 처치 시 +40🪙',   color:'#d080ff', kind:'challenge',
+    apply(){
+      const diff=bt.diffMult,act=gs.act,hpM=(1.5+(act-1)*0.8)*diff;
+      const cx=(bt.cam||{x:0}).x,cy=(bt.cam||{x:0,y:0}).y;
+      bt.enemies.push({x:cx+400,y:cy-50,size:28,speed:1.1,hp:Math.ceil(24*hpM),maxHp:Math.ceil(24*hpM),
+        color:'#c050e8',type:'basic',hitFlash:0,_eventElite:true,_eventGoldBonus:40});
+      playSound(280,0.3,'sawtooth',0.09); playSound(350,0.22,'sawtooth',0.07);
+    }
+  },
+];
+
+function tryTriggerBattleEvent() {
+  if (!bt || bt.won || bt.paused) return;
+  const pool = BATTLE_EVENTS.filter(ev => !bt._usedEventIds.has(ev.id));
+  if (pool.length === 0) return;
+  const ev = pool[Math.floor(Math.random() * pool.length)];
+  bt._usedEventIds.add(ev.id);
+  showBattleEventBanner(ev);
+  setTimeout(() => { if (bt && !bt.won) ev.apply(); }, 800); // 배너 표시 후 0.8초 뒤 효과 발동
+}
+
+function showBattleEventBanner(ev) {
+  const COLORS = { good:'#4ecf7a', bad:'#ff6060', neutral:'#ffa060', challenge:'#d080ff' };
+  const BG     = { good:'rgba(4,28,12,0.96)', bad:'rgba(28,4,4,0.96)', neutral:'rgba(28,16,4,0.96)', challenge:'rgba(20,4,28,0.96)' };
+  const col = COLORS[ev.kind] || '#f0d080';
+  const bg  = BG[ev.kind]     || 'rgba(8,16,38,0.96)';
+
+  const banner = document.createElement('div');
+  banner.style.cssText = `position:fixed;top:20%;left:50%;transform:translateX(-50%) scale(0.6);
+    z-index:9100;pointer-events:none;text-align:center;opacity:0;
+    transition:all 0.35s cubic-bezier(0.16,1,0.3,1);`;
+  banner.innerHTML = `<div style="display:inline-block;
+    background:${bg};border:1.5px solid ${col}88;border-radius:20px;
+    padding:14px 40px 18px;
+    box-shadow:0 12px 48px rgba(0,0,0,0.8),0 0 40px ${col}22;">
+    <div style="font-size:11px;color:${col};letter-spacing:3px;font-weight:800;margin-bottom:6px;opacity:0.85;">
+      ${{good:'✦ 이로운 이벤트 ✦',bad:'⚠ 위험 이벤트 ⚠',neutral:'◈ 돌발 이벤트 ◈',challenge:'☆ 도전 이벤트 ☆'}[ev.kind]||'이벤트'}
+    </div>
+    <div style="font-size:40px;line-height:1;margin-bottom:8px;filter:drop-shadow(0 0 16px ${col});">${ev.emoji}</div>
+    <div style="font-family:'Cinzel',serif;font-size:22px;font-weight:900;color:${col};
+      text-shadow:0 0 16px ${col}88;letter-spacing:2px;">${ev.name}</div>
+    <div style="font-size:12px;color:${col}bb;margin-top:6px;">${ev.desc}</div>
+  </div>`;
+  document.body.appendChild(banner);
+  requestAnimationFrame(() => { banner.style.opacity = '1'; banner.style.transform = 'translateX(-50%) scale(1)'; });
+  setTimeout(() => { banner.style.opacity = '0'; banner.style.transform = 'translateX(-50%) scale(1.05)'; }, 2400);
+  setTimeout(() => banner.remove(), 2800);
 }
 
 function spawnEnemiesForWave() {
@@ -7123,7 +7265,8 @@ function updateBattle() {
     if(e.frozen>0){e.frozen--;e.walkTime=(e.walkTime||0);continue;}
     const dx=p.x-e.x,dy=p.y-e.y,dist=Math.hypot(dx,dy);
     e.facingRight = dx > 0;
-    e.x+=(dx/dist)*e.speed; e.y+=(dy/dist)*e.speed;
+    const _bm = (!e.isBoss && bt._berserkMult > 1) ? bt._berserkMult : 1;
+    e.x+=(dx/dist)*e.speed*_bm; e.y+=(dy/dist)*e.speed*_bm;
     e.walkTime = (e.walkTime||0) + 1;
     if(e.isBoss){
       // 페이즈 전환 무적 타이머 감소
@@ -7485,7 +7628,7 @@ function updateBattle() {
           bt.enemies.forEach(e=>{if(Math.hypot(b.x-e.x,b.y-e.y)<ar)damageEnemy(e,1+s.aoe*0.5);});
           Audio.sfx.explosion();
         }
-        const baseDmg = (b.beam?4:2) * relicsBulletMult();
+        const baseDmg = (b.beam?4:2) * relicsBulletMult() * (bt._starPowerSecs > 0 ? 1.5 : 1);
         // 치명타 (critical1 카드)
         const critChance = Math.min(0.65, (s.critical||0)*0.20);
         let isCritCard = critChance > 0 && Math.random() < critChance;
@@ -7728,9 +7871,13 @@ function updateBattle() {
     }
     if(d<p.size+18){
       if(it.type==='hp'){p.hp=Math.min(p.maxHp,p.hp+16);spawnP(it.x,it.y,'#f44',5,2); Audio.sfx.hpPickup();}
+      else if(it.type==='hp_large'){ // 💊 구급 상자 이벤트 아이템 (HP +40%)
+        const _healAmt=Math.floor(p.maxHp*0.40); p.hp=Math.min(p.maxHp,p.hp+_healAmt);
+        spawnP(it.x,it.y,'#ff8080',10,3); spawnDN(p.x,p.y-30,'+'+_healAmt+'❤️','#ff8080'); Audio.sfx.hpPickup();
+      }
       else if(it.type==='freeze'){bt.enemies.forEach(e=>{if(Math.hypot(e.x-p.x,e.y-p.y)<200){e.frozen=120;spawnP(e.x,e.y,'#8df',5,2);}});Audio.sfx.freeze();}
       else if(it.type==='gold'){
-        const _goldAmt = Math.round(10 * (1 + (gs.act-1)*0.3) * (1 + (bt.wave-1)*0.1));
+        const _goldAmt = it._eventGold || Math.round(10 * (1 + (gs.act-1)*0.3) * (1 + (bt.wave-1)*0.1));
         gs.gold += _goldAmt; gs._totalGoldEarned = (gs._totalGoldEarned||0) + _goldAmt;
         trackMission('gold', _goldAmt);
         Audio.sfx.gold(); spawnDN(p.x,p.y-24,`+${_goldAmt}🪙`,'#c9a84c');
@@ -7873,6 +8020,15 @@ function killEnemy(e){
   if(!e.isSplit){
     gs.player.kills++;
     gs.totalKills++;
+  }
+  // 💀 정예 침입 이벤트 적 처치 보너스
+  if (e._eventGoldBonus > 0) {
+    gs.gold += e._eventGoldBonus;
+    gs._totalGoldEarned = (gs._totalGoldEarned||0) + e._eventGoldBonus;
+    trackMission('gold', e._eventGoldBonus);
+    showToast(`💀 정예 처치! +${e._eventGoldBonus}🪙`, 1800);
+    spawnP(e.x, e.y, '#d080ff', 14, 5);
+    for(let k=0;k<3;k++) bt.items.push({x:e.x+(Math.random()-.5)*60,y:e.y+(Math.random()-.5)*60,type:'gold',_eventGold:Math.floor(e._eventGoldBonus/3)});
   }
   // 일반 적: 작은 파티클 / 엘리트·보스: 큰 연출
   if(e.isEliteBoss || e.isBoss){
@@ -9856,6 +10012,29 @@ function drawHUD(ctx) {
     }
 
     ctx.restore();
+  }
+
+  // ── 돌발 이벤트 HUD — 타임드 이펙트 표시 (우측 상단) ──
+  {
+    const _evItems = [];
+    if (bt._starPowerSecs > 0) _evItems.push({ emoji:'🌟', label:`별의 가호 ${bt._starPowerSecs}s`, col:'#ffe080' });
+    if (bt._berserkSecs  > 0) _evItems.push({ emoji:'🔥', label:`광란 ${bt._berserkSecs}s`,      col:'#ff8040' });
+    if (_evItems.length > 0) {
+      ctx.save();
+      _evItems.forEach((item, i) => {
+        const _evX = W - PAD - 140, _evY = PAD + 36 + i * 28;
+        ctx.globalAlpha = 0.88;
+        ctx.fillStyle = 'rgba(4,8,20,0.85)';
+        roundRect(ctx, _evX, _evY, 136, 22, 11); ctx.fill();
+        ctx.strokeStyle = item.col + '88'; ctx.lineWidth = 1;
+        roundRect(ctx, _evX, _evY, 136, 22, 11); ctx.stroke();
+        ctx.font = '12px serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = item.col; ctx.fillText(item.emoji, _evX + 8, _evY + 11);
+        ctx.font = 'bold 10px Arial'; ctx.fillStyle = item.col;
+        ctx.fillText(item.label, _evX + 26, _evY + 11);
+      });
+      ctx.restore();
+    }
   }
 
   // ── 미니 도전 HUD — 하단 좌측 ──
