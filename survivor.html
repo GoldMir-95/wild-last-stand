@@ -86,7 +86,7 @@ canvas{display:block;}
 /* ── 지도 화면 ── */
 #mapScreen{flex-direction:column;gap:0;background:rgba(4,6,16,0.98);}
 #mapScreen .map-header{
-  width:960px;max-width:98vw;padding:14px 24px;
+  width:1080px;max-width:98vw;padding:14px 24px;
   background:linear-gradient(135deg,rgba(8,12,28,0.97),rgba(14,20,40,0.97));
   border-bottom:1px solid rgba(201,168,76,0.25);
   display:flex;align-items:center;justify-content:space-between;
@@ -428,7 +428,7 @@ canvas{display:block;}
       </button>
     </div>
   </div>
-  <canvas id="mapCanvas" width="960" height="600"></canvas>
+  <canvas id="mapCanvas" width="1080" height="680"></canvas>
 </div>
 
 <!-- 전투 화면 -->
@@ -1425,54 +1425,93 @@ const NODE_TYPES = {
   shop:    { emoji:'🏪',  get label(){ return t('상점','Shop');     }, color:'#4a9eff' },
   rest:    { emoji:'🏕️',  get label(){ return t('휴식','Rest');     }, color:'#4ecf7a' },
   boss:    { emoji:'👑',  get label(){ return t('보스','Boss');     }, color:'#c9a84c' },
-  event:   { emoji:'❓',  get label(){ return t('이벤트','Event');  }, color:'#f0d080' },
+  event:   { emoji:'🎭',  get label(){ return t('이벤트','Event');  }, color:'#f0d080' },
+  treasure:{ emoji:'💰',  get label(){ return t('보물','Treasure'); }, color:'#ffd060' },
+  mystery: { emoji:'🌀',  get label(){ return t('미지','Mystery');  }, color:'#a060ff' },
 };
-const FLOORS_PER_ACT = 7; // 보스 제외 6레이어 + 1보스
+const FLOORS_PER_ACT = 9; // 보스 제외 8레이어 + 1보스 (전략적 루트 선택 강화)
 const ACTS = 3;
 
 function generateMap(act) {
-  // 레이어당 3~4 노드, 총 7레이어 (마지막은 보스 1개)
+  // 레이어당 3~5 노드, 총 9레이어 (마지막은 보스 1개)
+  // mystery 타입의 실제 타입 풀
+  const MYSTERY_POOL = ['battle','elite','shop','rest','event','treasure'];
+  const MYSTERY_W    = [0.20,    0.18,   0.20,  0.18,  0.12,   0.12];
+  function pickMysteryReal() {
+    let rv = Math.random(), cum = 0;
+    for (let i = 0; i < MYSTERY_POOL.length; i++) {
+      cum += MYSTERY_W[i];
+      if (rv < cum) return MYSTERY_POOL[i];
+    }
+    return 'battle';
+  }
+
   const layers = [];
   const totalLayers = FLOORS_PER_ACT;
+
   for (let l = 0; l < totalLayers; l++) {
+    // 마지막 레이어: 보스
     if (l === totalLayers - 1) {
       layers.push([{ type:'boss', id:`${l}-0` }]);
       continue;
     }
-    const count = l === 0 ? 3 : 2 + Math.floor(Math.random()*2);
+    // 보스 전 레이어: rest/shop/treasure 중 3~4개
+    if (l === totalLayers - 2) {
+      const count = 3 + Math.floor(Math.random()*2);
+      const preTypes = ['rest','rest','shop','shop','treasure'];
+      const row = rndShuffle(preTypes).slice(0, count).map((type, n) => ({ type, _realType: type, id:`${l}-${n}` }));
+      layers.push(row);
+      continue;
+    }
+    // 첫 레이어: battle 3~4개
+    if (l === 0) {
+      const count = 3 + Math.floor(Math.random()*2);
+      layers.push(Array.from({length:count}, (_,n) => ({ type:'battle', _realType:'battle', id:`${l}-${n}` })));
+      continue;
+    }
+    // 일반 레이어: 3~5개, 다양한 타입
+    const count = 3 + Math.floor(Math.random()*3);
     const row = [];
     for (let n = 0; n < count; n++) {
+      const r = Math.random();
       let type;
-      if (l === 0) { type = 'battle'; }
-      else if (l === totalLayers - 2) { type = 'rest'; }
-      else {
-        const r = Math.random();
-        if (r < 0.28) type = 'battle';
-        else if (r < 0.45) type = 'elite';
-        else if (r < 0.59) type = 'shop';
-        else if (r < 0.72) type = 'rest';
-        else type = 'event';
-      }
-      row.push({ type, id:`${l}-${n}` });
+      if      (r < 0.22) type = 'battle';
+      else if (r < 0.36) type = 'elite';
+      else if (r < 0.50) type = 'shop';
+      else if (r < 0.62) type = 'rest';
+      else if (r < 0.74) type = 'event';
+      else if (r < 0.87) type = 'treasure';
+      else                type = 'mystery';
+
+      const _realType = type === 'mystery' ? pickMysteryReal() : type;
+      row.push({ type, _realType, id:`${l}-${n}` });
     }
     layers.push(row);
   }
-  // 경로 연결: 각 노드에서 다음 레이어 1~2개 연결
+
+  // 경로 연결: 각 노드 → 다음 레이어 2~3개 (전략적 루트 선택 강화)
   for (let l = 0; l < totalLayers - 1; l++) {
     const cur = layers[l], nxt = layers[l+1];
-    if (!nxt || nxt.length === 0) continue; // [H1] 다음 레이어가 비어있으면 스킵
+    if (!nxt || nxt.length === 0) continue;
     cur.forEach((node, ni) => {
       const targets = new Set();
+      // 주 연결 (비례 매핑)
       const idx = Math.min(Math.floor(ni * nxt.length / cur.length), nxt.length - 1);
       targets.add(idx);
-      if (Math.random() < 0.4) {
-        const idx2 = Math.min(idx + 1, nxt.length - 1);
-        targets.add(idx2);
+      // 2번째 연결 (70% 확률)
+      if (Math.random() < 0.70) {
+        const idx2 = idx < nxt.length-1 ? idx+1 : idx-1;
+        if (idx2 >= 0) targets.add(idx2);
       }
-      node.paths = [...targets].map(t => nxt[t].id);
+      // 3번째 연결 (35% 확률, 남은 노드 중 랜덤)
+      if (Math.random() < 0.35) {
+        const cands = [...Array(nxt.length).keys()].filter(i=>!targets.has(i));
+        if (cands.length > 0) targets.add(cands[Math.floor(Math.random()*cands.length)]);
+      }
+      node.paths = [...targets].map(i => nxt[i].id);
     });
   }
-  // 시작 노드 접근 가능 설정
+
   layers[0].forEach(n => n.accessible = true);
   return layers;
 }
@@ -4303,8 +4342,11 @@ function drawMap() {
   //  4. 노드 — 카드 스타일
   // ═══════════════════════════════════
   Object.values(nodePositions).forEach(({ x, y, node }) => {
-    const nt = NODE_TYPES[node.type];
+    // mystery 노드: 접근 가능하거나 방문 후엔 실제 타입 공개
     const accessible = isNodeAccessible(node);
+    const _displayType = (node.type === 'mystery' && (accessible || node.visited))
+      ? (node._realType || 'battle') : node.type;
+    const nt = NODE_TYPES[_displayType] || NODE_TYPES.mystery;
     const visited = node.visited;
     const isCurrent = node.id === gs.currentNodeId;
     const isHover = node.id === hoverNodeId && accessible;
@@ -4523,20 +4565,26 @@ mapCanvas.addEventListener('mousemove', e => {
     const nt = NODE_TYPES[foundNode.type] || {};
     const accessible = isNodeAccessible(foundNode);
     const visited = foundNode.visited;
+    // mystery 노드는 접근 가능할 때 실제 타입 공개
+    const _ttNode = foundNode;
+    const _ttType = (_ttNode.type === 'mystery' && (accessible || visited))
+      ? (_ttNode._realType || 'battle') : _ttNode.type;
     const typeDescs = {
-      battle: `⚔️ <b>전투</b><br><span style="color:#8aa0b8">적들과 싸우고 룬을 획득합니다</span>`,
-      elite:  `💀 <b>엘리트 전투</b><br><span style="color:#c8b0f8">강력한 적 — 처치 시 특수 능력 획득</span>`,
-      boss:   `👑 <b>보스</b><br><span style="color:#f0d080">이 구역의 최강 적 — 처치 시 아티팩트 선택</span>`,
-      shop:   `🛒 <b>상점</b><br><span style="color:#8aa0b8">룬·아티팩트·체력 구매 가능</span>`,
-      rest:   `🏕️ <b>휴식처</b><br><span style="color:#4ecf7a">HP 회복 / 룬 추가 / 룬 강화</span>`,
-      event:  `❓ <b>이벤트</b><br><span style="color:#aaa0ff">선택지를 통해 다양한 결과가 펼쳐집니다</span>`,
+      battle:   `⚔️ <b>전투</b><br><span style="color:#8aa0b8">적들과 싸우고 룬을 획득합니다</span>`,
+      elite:    `💀 <b>엘리트 전투</b><br><span style="color:#c8b0f8">강력한 적 — 처치 시 특수 능력 획득</span>`,
+      boss:     `👑 <b>보스</b><br><span style="color:#f0d080">이 구역의 최강 적 — 처치 시 아티팩트 선택</span>`,
+      shop:     `🏪 <b>상점</b><br><span style="color:#8aa0b8">룬·아티팩트·체력 구매 가능</span>`,
+      rest:     `🏕️ <b>휴식처</b><br><span style="color:#4ecf7a">HP 회복 / 룬 추가 / 룬 강화</span>`,
+      event:    `🎭 <b>이벤트</b><br><span style="color:#aaa0ff">선택지를 통해 다양한 결과가 펼쳐집니다</span>`,
+      treasure: `💰 <b>보물</b><br><span style="color:#ffd060">골드 획득 + 룬 또는 유물 중 선택</span>`,
+      mystery:  `🌀 <b>미지의 장소</b><br><span style="color:#c090ff">가까이 다가가야 알 수 있습니다</span>`,
     };
     const stateTag = visited
       ? `<div style="margin-top:6px;font-size:10px;color:#4ecf7a">✓ 방문 완료</div>`
       : accessible
         ? `<div style="margin-top:6px;font-size:10px;color:#4a9eff">→ 진입 가능</div>`
         : `<div style="margin-top:6px;font-size:10px;color:#5a5a6a">🔒 아직 접근 불가</div>`;
-    tip.innerHTML = (typeDescs[foundNode.type] || `<b>${foundNode.type}</b>`) + stateTag;
+    tip.innerHTML = (typeDescs[_ttType] || `<b>${_ttType}</b>`) + stateTag;
     tip.style.opacity = '1';
     tip.style.left = (e.clientX + 14) + 'px';
     tip.style.top  = (e.clientY - 10) + 'px';
@@ -4559,14 +4607,65 @@ function enterNode(node) {
   gs.currentNodeId = node.id;
   const li = parseInt(node.id.split('-')[0]);
   gs.currentLayer = li;
-  switch(node.type) {
-    case 'battle': startBattle(false, false); break;
-    case 'elite':  startBattle(true, false); break;
-    case 'boss':   startBattle(false, true); break;
-    case 'shop':   node.visited=true; gs._shopInventory = generateShopInventory(); showShop(); break;
-    case 'rest':   node.visited=true; showRest(); break;
-    case 'event':  node.visited=true; showEvent(); break;
+  // mystery 노드: 실제 타입으로 해석
+  const resolvedType = node.type === 'mystery' ? (node._realType || 'battle') : node.type;
+  switch(resolvedType) {
+    case 'battle':   startBattle(false, false); break;
+    case 'elite':    startBattle(true, false); break;
+    case 'boss':     startBattle(false, true); break;
+    case 'shop':     node.visited=true; gs._shopInventory = generateShopInventory(); showShop(); break;
+    case 'rest':     node.visited=true; showRest(); break;
+    case 'event':    node.visited=true; showEvent(); break;
+    case 'treasure': node.visited=true; enterTreasureNode(); break;
   }
+}
+
+function enterTreasureNode() {
+  // 💰 보물 노드: 골드 보상 + 카드 or 유물 중 선택
+  const goldGain = 50 + Math.floor(Math.random() * 31); // 50~80
+  gs.gold += goldGain;
+  gs._totalGoldEarned = (gs._totalGoldEarned||0) + goldGain;
+  playSound(660, 0.25, 'sine', 0.08); playSound(880, 0.2, 'sine', 0.06);
+  setTimeout(() => playSound(1100, 0.18, 'sine', 0.05), 120);
+
+  // 선택 오버레이
+  const ov = document.createElement('div');
+  ov.style.cssText = `position:fixed;inset:0;z-index:7000;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:20px;
+    background:rgba(4,8,20,0.92);opacity:0;transition:opacity 0.3s ease;`;
+  ov.innerHTML = `
+    <div style="font-size:56px;filter:drop-shadow(0 0 24px #ffd060);">💰</div>
+    <div style="font-family:'Cinzel',serif;font-size:24px;color:#ffd060;text-shadow:0 0 16px #ffd06088;font-weight:700;">보물 발견!</div>
+    <div style="font-size:15px;color:#c8d8e8;">+${goldGain} 🪙 획득</div>
+    <div style="font-size:13px;color:#7090b0;margin-top:-8px;">추가 보상을 선택하세요</div>
+    <div style="display:flex;gap:16px;margin-top:4px;">
+      <button id="_treasureCard" style="padding:14px 28px;border-radius:14px;border:1px solid rgba(200,160,80,0.5);
+        background:rgba(20,30,60,0.9);color:#e8d090;font-family:'Jua',sans-serif;font-size:15px;cursor:pointer;
+        transition:all 0.18s;box-shadow:0 2px 16px rgba(200,160,0,0.15);">
+        📜 룬 선택 <span style="font-size:11px;color:#8090a8;display:block;margin-top:2px;">카드 3장 중 1장</span>
+      </button>
+      <button id="_treasureRelic" style="padding:14px 28px;border-radius:14px;border:1px solid rgba(160,100,255,0.5);
+        background:rgba(20,30,60,0.9);color:#c090ff;font-family:'Jua',sans-serif;font-size:15px;cursor:pointer;
+        transition:all 0.18s;box-shadow:0 2px 16px rgba(120,60,200,0.15);">
+        🏺 유물 선택 <span style="font-size:11px;color:#8090a8;display:block;margin-top:2px;">유물 2종 중 1개</span>
+      </button>
+    </div>`;
+  document.body.appendChild(ov);
+  requestAnimationFrame(() => ov.style.opacity = '1');
+
+  const close = (cb) => {
+    ov.style.opacity = '0';
+    setTimeout(() => { ov.remove(); cb(); }, 300);
+  };
+  document.getElementById('_treasureCard').onclick = () => {
+    close(() => showCardSelection(() => showMapScreen(), {
+      title: t('💰 보물 — 룬 선택','💰 Treasure — Choose Rune'),
+      sub:   t('카드 1장을 선택하세요','Choose a rune'), count: 3
+    }));
+  };
+  document.getElementById('_treasureRelic').onclick = () => {
+    close(() => showRelicSelection(1, () => showMapScreen()));
+  };
 }
 
 // ═══════════════════════════════════════════════
