@@ -11257,6 +11257,44 @@ function showCardSelection(onDone, opts) {
   function hideCardDetail() { _detailTip.style.display = 'none'; }
   document.addEventListener('click', hideCardDetail, { once: true });
 
+  // ── 💫 레벨업 연출 (등급별 플래시 + 중앙 팝업 + 화음) ──
+  function _levelUpEffect(card, anchorEl) {
+    const _RC = {
+      common:   { c:'#8ab8d8', g:'120,170,220', s:[[523,0.20,'sine',0.09],[659,0.18,'sine',0.08]] },
+      uncommon: { c:'#40c8ff', g:'40,180,255',  s:[[440,0.22,'sine',0.09],[554,0.20,'sine',0.08],[659,0.18,'sine',0.07]] },
+      rare:     { c:'#d090ff', g:'160,80,255',  s:[[392,0.25,'sine',0.10],[523,0.22,'sine',0.08],[659,0.20,'sine',0.07],[784,0.18,'sine',0.06]] },
+      epic:     { c:'#ffc840', g:'255,180,0',   s:[[330,0.30,'sine',0.11],[415,0.26,'sine',0.09],[523,0.22,'sine',0.08],[659,0.20,'sine',0.07],[880,0.18,'sine',0.06]] },
+      curse:    { c:'#ff5555', g:'255,60,60',   s:[[220,0.30,'sawtooth',0.10],[165,0.22,'sawtooth',0.08]] }
+    };
+    const rc = _RC[card.rarity] || _RC.common;
+    // 사운드 (등급별 화음)
+    rc.s.forEach(([f,v,tp,d],i) => setTimeout(()=>playSound(f,v,tp,d), i*75));
+    // 화면 플래시 (방사형 그라디언트)
+    const _fl = document.createElement('div');
+    _fl.style.cssText = `position:fixed;inset:0;z-index:8000;pointer-events:none;opacity:0;
+      background:radial-gradient(ellipse 70% 70% at 50% 50%,rgba(${rc.g},0.22) 0%,transparent 70%);
+      transition:opacity 0.07s ease;`;
+    document.body.appendChild(_fl);
+    requestAnimationFrame(()=>{ _fl.style.opacity='1'; });
+    setTimeout(()=>{ _fl.style.transition='opacity 0.55s ease'; _fl.style.opacity='0'; },90);
+    setTimeout(()=>_fl.remove(),700);
+    // 중앙 팝업 (이모지 + 카드명 + 등급)
+    const _RL = {common:'',uncommon:'UNCOMMON',rare:'✦ RARE ✦',epic:'⚡ EPIC ⚡',curse:'💀 CURSE 💀'};
+    const _pop = document.createElement('div');
+    _pop.style.cssText = `position:fixed;z-index:8500;pointer-events:none;
+      left:50%;top:50%;transform:translate(-50%,-50%) scale(0.5);
+      font-family:'Jua',sans-serif;text-align:center;opacity:0;
+      transition:all 0.35s cubic-bezier(0.16,1,0.3,1);`;
+    _pop.innerHTML = `<div style="font-size:64px;line-height:1;filter:drop-shadow(0 0 28px ${rc.c});">${card.emoji}</div>
+      <div style="font-size:20px;font-weight:800;color:${rc.c};text-shadow:0 0 18px ${rc.c}88;
+        letter-spacing:0.5px;margin-top:8px;">${card.name}</div>
+      ${_RL[card.rarity]?`<div style="font-size:10px;color:${rc.c}99;margin-top:3px;letter-spacing:3px;">${_RL[card.rarity]}</div>`:''}`;
+    document.body.appendChild(_pop);
+    requestAnimationFrame(()=>{ _pop.style.opacity='1'; _pop.style.transform='translate(-50%,-50%) scale(1)'; });
+    setTimeout(()=>{ _pop.style.transition='all 0.38s ease'; _pop.style.opacity='0'; _pop.style.transform='translate(-50%,-58%) scale(1.05)'; },400);
+    setTimeout(()=>_pop.remove(),850);
+  }
+
   // 카드 행 렌더링 (초기 + 리롤 공용)
   function _renderCardRow(cardList) { cardList.forEach((card, _cardIdx) => {
     const el = document.createElement('div');
@@ -11320,9 +11358,13 @@ function showCardSelection(onDone, opts) {
       if (bt && bt._cardSelectBlocked) return;
       hideCardDetail();
       _hideRerollBtn();
-      // 선택 flash 이펙트
-      el.style.animation = 'cardPickFlash 0.45s ease-out both';
-      row.querySelectorAll('.card').forEach(c => { if(c!==el){ c.style.transition='opacity 0.25s'; c.style.opacity='0'; c.onclick=null; } });
+      // 선택 flash 이펙트 (등급별 색상 발광)
+      const _cgc = {common:'rgba(140,180,220,0.7)',uncommon:'rgba(40,200,255,0.85)',rare:'rgba(180,100,255,0.9)',epic:'rgba(255,190,0,0.95)',curse:'rgba(255,70,70,0.85)'};
+      el.style.transition = 'box-shadow 0.12s ease, transform 0.12s ease';
+      el.style.boxShadow = `0 0 52px 20px ${_cgc[card.rarity]||_cgc.common}`;
+      el.style.transform = 'scale(1.07)';
+      setTimeout(()=>{ el.style.transition='opacity 0.42s ease, transform 0.42s ease'; el.style.opacity='0'; el.style.transform='scale(1.12)'; },140);
+      row.querySelectorAll('.card').forEach(c => { if(c!==el){ c.style.transition='opacity 0.2s'; c.style.opacity='0'; c.onclick=null; } });
       row.querySelectorAll('.card').forEach(c => c.onclick = null);
       // ── 중복 카드 강화 체크 (push 전에 확인) ──
       const _isDupe = gs.deck.some(d => d.id === card.id);
@@ -11364,20 +11406,22 @@ function showCardSelection(onDone, opts) {
         setTimeout(()=>{ bn.style.opacity='0'; bn.style.transform='translate(-50%,-50%) scale(1.1)'; }, 1600);
         setTimeout(()=>bn.remove(), 2000);
       } else {
-        playSound(520,0.2,'sine',0.1); playSound(660,0.3,'sine',0.08);
+        _levelUpEffect(card, el);
         showToast(`✨ ${card.name} 획득!`);
       }
-      // pick(n)을 요청한 카드: 추가 선택 체인 후 onDone
-      if (_extraPicks > 0) {
-        let _chain = onDone || (() => showMapScreen());
-        for (let _pi = 0; _pi < _extraPicks; _pi++) {
-          const _next = _chain;
-          _chain = () => setTimeout(() => showCardSelection(_next, {title:t('📜 추가 룬 선택','📜 Bonus Rune'), sub:t('계약의 대가로 룬을 선택하세요','Choose a rune as pact reward'), count:3}), 220);
+      // pick(n)을 요청한 카드: 추가 선택 체인 후 onDone (480ms 딜레이 — 연출 후 전환)
+      setTimeout(() => {
+        if (_extraPicks > 0) {
+          let _chain = onDone || (() => showMapScreen());
+          for (let _pi = 0; _pi < _extraPicks; _pi++) {
+            const _next = _chain;
+            _chain = () => setTimeout(() => showCardSelection(_next, {title:t('📜 추가 룬 선택','📜 Bonus Rune'), sub:t('계약의 대가로 룬을 선택하세요','Choose a rune as pact reward'), count:3}), 220);
+          }
+          _chain();
+        } else {
+          if(onDone) onDone(); else showMapScreen();
         }
-        _chain();
-      } else {
-        if(onDone) onDone(); else showMapScreen();
-      }
+      }, 480);
     };
     row.appendChild(el);
   }); } // _renderCardRow 끝
