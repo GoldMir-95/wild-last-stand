@@ -231,9 +231,9 @@ canvas{display:block;}
 }
 
 /* ── 웨이브 알림 — 중앙 (토스트와 위치 분리) ── */
-#waveNotif{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:200;pointer-events:none;text-align:center;opacity:0;transition:opacity 0.28s;}
+#waveNotif{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:200;pointer-events:none;text-align:center;opacity:0;}
 @keyframes waveNotifIn{0%{transform:scale(0.7) translateY(18px);opacity:0}60%{transform:scale(1.06) translateY(-4px);opacity:1}100%{transform:scale(1) translateY(0);opacity:1}}
-@keyframes waveNotifOut{0%{transform:scale(1);opacity:1}100%{transform:scale(0.88) translateY(-12px);opacity:0}}
+@keyframes waveNotifOut{0%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-50%) scale(0.88) translateY(-12px);opacity:0}}
 @keyframes waveClearPulse{0%,100%{text-shadow:0 0 20px rgba(240,200,60,0.85),0 0 40px rgba(240,200,60,0.35)}50%{text-shadow:0 0 40px rgba(255,220,80,1),0 0 80px rgba(255,220,80,0.6),0 0 120px rgba(255,200,40,0.3)}}
 
 /* ══════════════════════════════════════
@@ -452,7 +452,7 @@ canvas{display:block;}
   </div>
 </div>
 <button id="deckBtn" style="display:none;">🔮 보유 룬</button>
-<button id="pauseBtn" onclick="toggleBattlePause()" style="display:none;position:fixed;top:12px;right:12px;z-index:50;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,0.2);background:rgba(4,8,20,0.7);color:#8aa0b8;font-size:16px;cursor:pointer;align-items:center;justify-content:center;" title="일시정지 (P / ESC)">⏸</button>
+<button id="pauseBtn" onclick="toggleBattlePause()" style="display:none;position:fixed;top:12px;right:60px;z-index:50;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,0.2);background:rgba(4,8,20,0.7);color:#8aa0b8;font-size:16px;cursor:pointer;align-items:center;justify-content:center;" title="일시정지 (P / ESC)">⏸</button>
 
 <!-- 카드 선택 화면 -->
 <div id="cardScreen" class="screen hidden">
@@ -2247,8 +2247,12 @@ function showWaveNotif(text, sub='', opts={}) {
   const dur = isClear ? 2200 : opts.dur || 1600;
   if (el._notifTimer) clearTimeout(el._notifTimer);
   el._notifTimer = setTimeout(() => {
-    el.style.animation = 'waveNotifOut 0.32s ease-in both';
-    setTimeout(() => { el.style.opacity = '0'; el.style.animation = ''; }, 310);
+    el.style.animation = 'waveNotifOut 0.32s ease-in forwards';
+    setTimeout(() => {
+      el.style.animation = '';
+      el.style.opacity = '0';
+      el.style.transform = 'translate(-50%,-50%)'; // 중앙 위치 복원
+    }, 330);
   }, dur);
 }
 
@@ -4056,10 +4060,14 @@ function showMapScreen() {
   saveRun(); // ← 맵 화면 복귀 시 자동 저장
   // 펄스 애니메이션용 루프
   if (mapAnimId) cancelAnimationFrame(mapAnimId);
+  let _lastMapDraw = 0;
   function mapLoop() {
     if (gs.screen !== 'mapScreen') return;
-    drawMap();
     mapAnimId = requestAnimationFrame(mapLoop);
+    const now = Date.now();
+    if (now - _lastMapDraw < 33) return; // ~30fps로 제한 (맵은 60fps 불필요)
+    _lastMapDraw = now;
+    drawMap();
   }
   mapLoop();
 }
