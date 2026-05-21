@@ -2190,6 +2190,160 @@ window.addEventListener('popstate', (e) => {
   // 그 외: 브라우저 기본 동작 허용
 });
 
+// ══════════════════════════════════════════════════════
+//  리소스 시스템 — 캐릭터/적/보스 이미지 교체
+// ══════════════════════════════════════════════════════
+const _RES_PREFIX = '_gameRes_';
+window._RES = {}; // { key: HTMLImageElement }
+
+// 로컬스토리지에서 저장된 리소스 로드
+(function _loadAllRes() {
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k || !k.startsWith(_RES_PREFIX)) continue;
+    const id = k.slice(_RES_PREFIX.length);
+    const b64 = localStorage.getItem(k);
+    if (!b64) continue;
+    const img = new Image();
+    img.src = b64;
+    window._RES[id] = img;
+  }
+})();
+
+// 리소스 저장
+function _saveRes(id, base64) {
+  localStorage.setItem(_RES_PREFIX + id, base64);
+  const img = new Image();
+  img.src = base64;
+  window._RES[id] = img;
+}
+
+// 리소스 삭제
+function _deleteRes(id) {
+  localStorage.removeItem(_RES_PREFIX + id);
+  delete window._RES[id];
+}
+
+// 캔버스에 리소스 이미지 그리기 헬퍼 (중앙 정렬, size 기준)
+function _drawResImage(ctx, id, size) {
+  const img = window._RES[id];
+  if (!img || !img.complete || !img.naturalWidth) return false;
+  const d = size * 2.4;
+  ctx.drawImage(img, -d/2, -d/2, d, d);
+  return true;
+}
+
+// 리소스 정의 목록
+const _RES_DEFS = {
+  char: [
+    { id:'penguin', label:'펭귄', emoji:'🐧' },
+    { id:'fox',     label:'여우', emoji:'🦊' },
+    { id:'rabbit',  label:'토끼', emoji:'🐰' },
+    { id:'cat',     label:'고양이',emoji:'🐱' },
+    { id:'bear',    label:'곰',   emoji:'🐻' },
+  ],
+  enemy: [
+    { id:'normal',  label:'일반 적 (여우형)', emoji:'🦊' },
+    { id:'fast',    label:'빠른 적 (토끼형)', emoji:'🐰' },
+    { id:'tank',    label:'탱크 적 (거북형)', emoji:'🐢' },
+  ],
+  elite: [
+    { id:'elite_berserker',  label:'엘리트: 광전사',  emoji:'⚔️' },
+    { id:'elite_necromancer',label:'엘리트: 네크로맨서',emoji:'💜' },
+    { id:'elite_colossus',   label:'엘리트: 거신',    emoji:'🛡️' },
+  ],
+  boss: [
+    { id:'boss_lord',     label:'보스: 초원의 군주', emoji:'🦁' },
+    { id:'boss_boar',     label:'보스: 광폭 멧돼지', emoji:'🐗' },
+    { id:'boss_spirit',   label:'보스: 숲의 정령',   emoji:'🌿' },
+    { id:'boss_king',     label:'보스: 빙하의 왕',   emoji:'🐉' },
+    { id:'boss_witch',    label:'보스: 설원의 마녀', emoji:'🧊' },
+    { id:'boss_giant',    label:'보스: 빙하 거인',   emoji:'🏔️' },
+    { id:'boss_overlord', label:'보스: 심연의 군주', emoji:'😈' },
+    { id:'boss_firelord', label:'보스: 화염 대마왕', emoji:'🔥' },
+    { id:'boss_voidgod',  label:'보스: 공허의 신',   emoji:'💀' },
+  ],
+};
+
+// 리소스 오버레이 표시
+function showResourceOverlay() {
+  const ov = document.createElement('div');
+  ov.className = 'lb-overlay';
+
+  function renderRes() {
+    const allGroups = [
+      { key:'char',  title:'🐧 캐릭터', items: _RES_DEFS.char  },
+      { key:'enemy', title:'👾 일반 적', items: _RES_DEFS.enemy },
+      { key:'elite', title:'⚡ 엘리트',  items: _RES_DEFS.elite },
+      { key:'boss',  title:'💀 보스',    items: _RES_DEFS.boss  },
+    ];
+
+    ov.innerHTML = `<div class="lb-ov-inner" style="padding-bottom:40px">
+      <div class="lb-ov-head">
+        <span>🖼️ 리소스 관리</span>
+        <button id="_resClose" class="lb-ov-back">✕</button>
+      </div>
+      <div style="font-size:11px;color:#5a7a9a;margin-bottom:16px;line-height:1.6">
+        각 슬롯에 이미지를 업로드하면 인게임에서 해당 캐릭터/적/보스가 그 이미지로 표시됩니다.<br>
+        <span style="color:#4a9eff">PNG/JPG/WebP 권장 · 투명 배경(PNG)이면 더 자연스러워요</span>
+      </div>
+      ${allGroups.map(g => `
+        <div style="font-size:12px;font-weight:800;color:#c9a84c;letter-spacing:1px;margin:18px 0 10px">${g.title}</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${g.items.map(item => {
+            const resKey = `${g.key}_${item.id}`;
+            const hasRes = !!window._RES[resKey];
+            const thumb = hasRes ? `<img src="${localStorage.getItem(_RES_PREFIX+resKey)||''}" style="width:48px;height:48px;object-fit:contain;border-radius:8px">` :
+              `<div style="width:48px;height:48px;border-radius:8px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-size:28px">${item.emoji}</div>`;
+            return `<div style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.04);border:1px solid ${hasRes?'rgba(78,207,122,0.3)':'rgba(255,255,255,0.07)'};border-radius:12px;padding:10px 12px">
+              ${thumb}
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:700;color:#d8e4f0;margin-bottom:2px">${item.label}</div>
+                <div style="font-size:10px;color:${hasRes?'#4ecf7a':'#5a7a9a'}">${hasRes?'✅ 이미지 등록됨':'기본 그래픽 사용 중'}</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+                <label style="background:linear-gradient(135deg,#4a9eff,#2060c0);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">
+                  📁 업로드
+                  <input type="file" accept="image/*" style="display:none" onchange="window._resUpload('${resKey}',this)">
+                </label>
+                ${hasRes?`<button onclick="window._resDelete('${resKey}')" style="background:rgba(255,60,60,0.15);border:1px solid rgba(255,60,60,0.3);color:#ff6060;border-radius:8px;padding:5px 10px;font-size:10px;cursor:pointer;font-weight:700">🗑 삭제</button>`:''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      `).join('')}
+      <div style="margin-top:20px;padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;font-size:10px;color:#3a5a6a;text-align:center">
+        이미지는 브라우저 로컬에 저장됩니다 (앱 삭제/캐시 초기화 시 사라짐)
+      </div>
+    </div>`;
+
+    // 업로드 핸들러
+    window._resUpload = (resKey, input) => {
+      const file = input.files[0];
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) { showToast('⚠️ 파일이 너무 큽니다 (최대 2MB)', 2000); return; }
+      const reader = new FileReader();
+      reader.onload = e => {
+        _saveRes(resKey, e.target.result);
+        showToast(`✅ ${resKey} 이미지 저장!`, 1500);
+        renderRes(); // 목록 새로고침
+      };
+      reader.readAsDataURL(file);
+    };
+    window._resDelete = (resKey) => {
+      _deleteRes(resKey);
+      showToast(`🗑 ${resKey} 삭제됨`, 1200);
+      renderRes();
+    };
+
+    ov.querySelector('#_resClose').addEventListener('click', () => { history.back(); ov._doClose(); });
+  }
+
+  renderRes();
+  ov._doClose = _pushBack(() => { if (ov.isConnected) ov.remove(); });
+  document.body.appendChild(ov);
+}
+
 // ── 성장 패널 업데이트 ──
 function updateGrowthBar() {
   if (!gs || !gs.player) return;
@@ -2495,7 +2649,11 @@ function initLobby() {
           <button class="lb-arrow" style="left:10px" id="arrowL">‹</button>
 
           <div style="text-align:center;z-index:2;position:relative;cursor:pointer" onclick="showLobbyCharDetail()">
-            <div class="lobby-char-emo">${locked?'🔒':ch.emoji}</div>
+            ${locked ? `<div class="lobby-char-emo">🔒</div>` :
+              (window._RES[`char_${ch.id}`] && window._RES[`char_${ch.id}`].complete && window._RES[`char_${ch.id}`].naturalWidth)
+                ? `<img src="${localStorage.getItem(_RES_PREFIX+'char_'+ch.id)||''}" class="lobby-char-emo" style="width:96px;height:96px;object-fit:contain">`
+                : `<div class="lobby-char-emo">${ch.emoji}</div>`
+            }
             <div class="lobby-platform"></div>
             <div class="lobby-char-name">${ch.name}</div>
             <div class="lobby-char-desc">${ch.desc}</div>
@@ -2593,6 +2751,9 @@ function initLobby() {
           <div class="lb-tab" onclick="showDailyMissionOverlay()" style="position:relative">
             <span class="ti">📋</span><span class="tl">미션</span>
             ${(()=>{const done=prem.dailyMissions&&prem.dailyMissions.filter(m=>m.progress>=m.goal&&!m.claimed).length;return done?`<span style="position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:#e05050;"></span>`:''})()}
+          </div>
+          <div class="lb-tab" onclick="showResourceOverlay()">
+            <span class="ti">🖼️</span><span class="tl">리소스</span>
           </div>
         </div>
       </div>`;
@@ -10793,6 +10954,8 @@ function updateHUD(){
 // ctx는 이미 플레이어 위치로 translate + pAngle+PI/2 rotate 된 상태
 // s = player.size (~20)
 function drawPlayerCharacter(ctx, charId, s) {
+  // 리소스 이미지가 등록돼 있으면 우선 사용
+  if (_drawResImage(ctx, `char_${charId}`, s)) return;
   switch(charId) {
 
     default:
@@ -11111,6 +11274,20 @@ function drawEnemyAnimal(ctx,e){
     ctx.arc(x+s*.18,y-s*.4,s*.06,0,Math.PI*2); ctx.fill();
     ctx.restore();
   }
+  // 리소스 이미지 우선 사용 (등록된 경우)
+  const _resKey = e.isBoss ? `boss_${(gs.bossVariant||{}).id||'lord'}` :
+                  e.isEliteBoss ? `elite_${e.type}` :
+                  `enemy_${e.type}`;
+  if (window._RES[_resKey]) {
+    ctx.save();
+    ctx.translate(x, y);
+    _drawResImage(ctx, _resKey, s);
+    ctx.restore();
+    ctx.restore(); // flip용 save
+    ctx.restore(); // 외부 save
+    return;
+  }
+
   switch(e.type){
 
     case'normal': { // SVG 여우형
