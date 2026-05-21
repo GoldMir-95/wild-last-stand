@@ -682,15 +682,15 @@ const DEATH_MSGS_EN = [
 ];
 
 const CHARACTERS = [
-  { id:'penguin', name:'펭귄', emoji:'🐧', unlocked:true,  desc:'균형형. 빠른 탄속 +2 & 회전 검 1개 시작',         hp:120, bonuses:{bulletSpeed:2, sword:1},
+  { id:'penguin', name:'펭귄', emoji:'🐧', unlocked:true,  desc:'균형형. 약한 탄속으로 시작해 카드로 성장하는 만능형',      hp:70,  bonuses:{bulletSpeed:0.5},
     passive:{name:'원검 일체', emoji:'⚔️', desc:'검 명중마다 스택+1(최대4), 스택당 탄환 데미지 +25%'} },
-  { id:'fox',     name:'여우', emoji:'🦊', unlocked:false, desc:'전략가. 폭발 강화 1 + 번개 1 시작',               hp:100, bonuses:{aoe:1, lightning:1},          unlockKills:50,
+  { id:'fox',     name:'여우', emoji:'🦊', unlocked:false, desc:'전략가. 폭발 특화 시작. 콤보를 쌓을수록 강해진다',          hp:60,  bonuses:{aoe:1},                     unlockKills:50,
     passive:{name:'폭발 직감', emoji:'💥', desc:'5킬마다 다음 8발이 자동 폭발탄으로 발사됩니다'} },
-  { id:'rabbit',  name:'토끼', emoji:'🐰', unlocked:false, desc:'돌격자. 이동속도↑ 대시 + 재생 시작',              hp:110, bonuses:{speed:0.5, dash:1, regen:1},   unlockKills:150,
+  { id:'rabbit',  name:'토끼', emoji:'🐰', unlocked:false, desc:'돌격자. 대시 기동전 특화. 카드로 화력을 끌어올려라',        hp:65,  bonuses:{speed:0.3, dash:1},          unlockKills:150,
     passive:{name:'도약 반격', emoji:'⚡', desc:'대시 종료 직후 0.5초, 탄환 데미지 ×2.5'} },
-  { id:'cat',     name:'고양이', emoji:'🐱', unlocked:false, desc:'고속 사수. 총알 +2발 + 연사 강화 시작. HP 낮음',  hp:90,  bonuses:{bulletCount:2, fireRateBonus:80}, unlockKills:200,
+  { id:'cat',     name:'고양이', emoji:'🐱', unlocked:false, desc:'고속 사수. 총알 1발 추가. 연사 카드 획득 시 폭발 성장',   hp:55,  bonuses:{bulletCount:1, fireRateBonus:25}, unlockKills:200,
     passive:{name:'집중 사격', emoji:'🎯', desc:'같은 적에 4발 연속 명중 시 다음 탄이 크리티컬 ×4'} },
-  { id:'bear',    name:'곰',    emoji:'🐻', unlocked:false, desc:'요새. 보호막 2개 + 재생 +2 시작. 느리지만 튼튼',  hp:170, bonuses:{shield:2, regen:2, speed:-0.5}, unlockKills:350,
+  { id:'bear',    name:'곰',    emoji:'🐻', unlocked:false, desc:'요새. 보호막 1개 시작. 방어 카드를 쌓아 철벽을 완성하라',  hp:105, bonuses:{shield:1, regen:1, speed:-0.5}, unlockKills:350,
     passive:{name:'철옹 반격', emoji:'🛡️', desc:'보호막 파괴 시 주변 폭발+스턴. HP 50% 이하에서 피해 -25%'} },
 ];
 
@@ -704,16 +704,16 @@ const RARITY_WEIGHT = {common:6,uncommon:3,rare:2,epic:1,curse:1};
 
 const CARD_POOL = [
   // ─ COMMON ─
-  {id:'bulletSpd1', name:'신속의 총알',  emoji:'🟡', rarity:'common',   desc:'총알 속도가 증가합니다.',               effect:'+탄속 1.5',  action:s=>{ s.bulletSpeed+=1.5; }},
+  {id:'bulletSpd1', name:'신속의 총알',  emoji:'🟡', rarity:'common',   desc:'총알 속도가 증가합니다.',               effect:'+탄속 2',    action:s=>{ s.bulletSpeed+=2; }},
   {id:'multiShot1', name:'이중 사격',    emoji:'🔫', rarity:'common',   desc:'총알을 2발씩 발사합니다.',              effect:'+발사 수 1', action:s=>{ s.bulletCount+=1; }},
-  {id:'hpUp1',      name:'체력 강화',    emoji:'❤️', rarity:'common',   desc:'최대 HP가 증가합니다.',                effect:'+최대HP 20',action:(s,p)=>{ p.maxHp+=20; p.hp+=20; }},
+  {id:'hpUp1',      name:'체력 강화',    emoji:'❤️', rarity:'common',   desc:'최대 HP가 증가합니다.',                effect:'+최대HP 25',action:(s,p)=>{ p.maxHp+=25; p.hp+=25; }},
   {id:'magnet1',    name:'자석 확장',    emoji:'🧲', rarity:'common',   desc:'아이템 자동 수집 범위가 늘어납니다.',   effect:'+자석 범위', action:s=>{ s.magnet+=1; }},
-  {id:'fireRate1',  name:'연사 강화',    emoji:'⚡', rarity:'common',   desc:'발사 간격이 짧아집니다.',              effect:'-쿨다운 50ms',action:s=>{ s.fireRateBonus=(s.fireRateBonus||0)+50; }},
+  {id:'fireRate1',  name:'연사 강화',    emoji:'⚡', rarity:'common',   desc:'발사 간격이 짧아집니다.',              effect:'-쿨다운 65',action:s=>{ s.fireRateBonus=(s.fireRateBonus||0)+65; }},
   // ─ UNCOMMON ─
   {id:'piercing',   name:'관통탄',       emoji:'💠', rarity:'uncommon', desc:'총알이 적을 통과합니다.',              effect:'관통 활성화', action:s=>{ s.piercing=true; }},
   {id:'aoe1',       name:'폭발 강화',    emoji:'💥', rarity:'uncommon', desc:'적 처치 시 범위 폭발이 발생합니다.',   effect:'+폭발 범위',  action:s=>{ s.aoe+=1; }},
   {id:'sword1',     name:'회전 검',      emoji:'🗡️', rarity:'uncommon', desc:'주위를 회전하는 검이 생깁니다.',       effect:'+검 1개',     flavor:'황폐한 평원의 기사단이 즐겨쓰던 전통 기법.', action:s=>{ s.sword+=1; }},
-  {id:'speedUp1',   name:'질풍 이동',    emoji:'💨', rarity:'uncommon', desc:'이동 속도가 증가합니다.',              effect:'+속도 0.4',   action:(s,p)=>{ p.speed+=0.4; }},
+  {id:'speedUp1',   name:'질풍 이동',    emoji:'💨', rarity:'uncommon', desc:'이동 속도가 증가합니다.',              effect:'+속도 0.5',   action:(s,p)=>{ p.speed+=0.5; }},
   {id:'dash1',      name:'대시',         emoji:'💫', rarity:'uncommon', desc:'스페이스바로 대시할 수 있습니다.',     effect:'대시 활성화', action:s=>{ s.dash+=1; }},
   {id:'multiAoe',   name:'연쇄 폭발',    emoji:'🔥', rarity:'uncommon', desc:'폭발이 연쇄적으로 발생합니다.',        effect:'+연쇄폭발',   action:s=>{ s.multiAoe+=1; }},
   // ─ RARE ─
@@ -725,7 +725,7 @@ const CARD_POOL = [
   // ─ EPIC ─
   {id:'deathBeam',  name:'소멸 광선',    emoji:'🌀', rarity:'epic',     desc:'강력한 관통 레이저를 발사합니다.',     effect:'레이저 활성화', flavor:'이 광선 앞에선 모든 것이 티끌이 된다.', action:s=>{ s.deathBeam=true; s.piercing=true; s.bulletSpeed+=2; }},
   {id:'blackhole',  name:'블랙홀',       emoji:'🕳️', rarity:'epic',     desc:'적을 끌어당기는 블랙홀이 생깁니다.',  effect:'블랙홀 활성화', flavor:'별조차 삼키는 어둠. 그 중심에서 벗어나는 자는 없다.', action:s=>{ s.blackhole=true; }},
-  {id:'fullArmor',  name:'완전 방어',    emoji:'⚔️', rarity:'epic',     desc:'보호막 2개와 최대 HP +30을 얻습니다.',effect:'방어력 강화',  action:(s,p,gs)=>{ s.shield+=2; gs.shieldCount+=2; p.maxHp+=30; p.hp+=30; }},
+  {id:'fullArmor',  name:'완전 방어',    emoji:'⚔️', rarity:'epic',     desc:'보호막 2개와 최대 HP +40을 얻습니다.',effect:'방어력 강화',  action:(s,p,gs)=>{ s.shield+=2; gs.shieldCount+=2; p.maxHp+=40; p.hp+=40; }},
   // ─ COMMON (신규) ─
   {id:'goldShot',   name:'황금 탄환',    emoji:'🪙', rarity:'common',   desc:'적 처치 시 골드 +2를 추가로 획득합니다. (황금비 시너지: +3)',   effect:'+골드/처치',    action:s=>{ s.goldShot=true; }},
   {id:'shockwave1', name:'충격 탄환',    emoji:'💫', rarity:'common',   desc:'총알이 적에게 폭발 충격파를 일으켜 주변을 밀어냅니다.', effect:'밀어내기 활성화',action:s=>{ s.shockwave=(s.shockwave||0)+1; }},
@@ -750,7 +750,7 @@ const CARD_POOL = [
   {id:'burstFire', name:'폭발 연사', emoji:'💢', rarity:'uncommon',
    desc:'발사 간격이 대폭 단축되지만 탄속이 -1 느려집니다.',
    effect:'연사↑ / 탄속-1',
-   action:s=>{ s.fireRateBonus=(s.fireRateBonus||0)+80; s.bulletSpeed=Math.max(1,(s.bulletSpeed||3)-1); }},
+   action:s=>{ s.fireRateBonus=(s.fireRateBonus||0)+100; s.bulletSpeed=Math.max(1,(s.bulletSpeed||3)-1); }},
   // ─ CURSE (저주 카드 — 고위험 고보상) ─
   {id:'bloodPact',  name:'피의 계약',  emoji:'💀', rarity:'curse',
    desc:'강력한 힘을 얻지만, 처치할 때마다 HP 2를 잃습니다.',
@@ -2066,7 +2066,7 @@ function showDailyMissionOverlay() {
   const ov = document.createElement('div');
   ov.id = 'dailyMissionOverlay';
   ov.style.cssText = 'position:fixed;inset:0;z-index:300;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.6);';
-  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  ov.onclick = e => { if (e.target === ov) history.back(); };
 
   const missionRows = prem.dailyMissions.map((m, i) => {
     const done = m.progress >= m.goal;
@@ -2106,7 +2106,7 @@ function showDailyMissionOverlay() {
           <div style="font-size:18px;font-weight:900;color:#d8e4f0">📋 데일리 미션</div>
           <div style="font-size:11px;color:#5a7a9a;margin-top:2px">${getTodayStr()} · 자정에 초기화</div>
         </div>
-        <button onclick="document.getElementById('dailyMissionOverlay').remove()"
+        <button onclick="history.back()"
           style="background:rgba(255,255,255,0.08);border:none;border-radius:8px;width:32px;height:32px;
           font-size:16px;cursor:pointer;color:#8aa0b8;">✕</button>
       </div>
@@ -2114,6 +2114,7 @@ function showDailyMissionOverlay() {
     </div>`;
 
   window._claimMission = claimDailyMission;
+  _pushBack(() => { if (ov.isConnected) ov.remove(); });
   document.body.appendChild(ov);
 }
 
@@ -2147,6 +2148,32 @@ function showScreen(id) {
   _gb.style.display = _showGb ? 'flex' : 'none';
   if (_showGb) updateGrowthBar();
 }
+
+// ══════════════════════════════════════════════════════
+//  모바일 뒤로가기 시스템 (Android 뒤로가기 / 브라우저 Back)
+// ══════════════════════════════════════════════════════
+window._backStack = [];
+
+// 오버레이/화면이 열릴 때 호출 — history 항목 추가 + 클로저 등록
+function _pushBack(closeFn) {
+  history.pushState({ _gb: Date.now() }, '');
+  window._backStack.push(closeFn);
+}
+
+// popstate: Android 뒤로가기 or 브라우저 Back 버튼
+window.addEventListener('popstate', () => {
+  const stack = window._backStack;
+  if (stack && stack.length > 0) {
+    // 등록된 핸들러 실행 (오버레이 닫기 / 화면 이동)
+    const fn = stack.pop();
+    try { fn(); } catch(e) {}
+  } else if (gs && gs.screen === '__battle__' && bt && !bt.won) {
+    // 배틀 중 뒤로가기 → 일시정지 토글
+    history.pushState({ _gb: Date.now() }, ''); // 앱 종료 방지용 재등록
+    toggleBattlePause();
+  }
+  // 그 외 (타이틀/맵에서 스택 비었을 때) → 브라우저 기본 동작 허용
+});
 
 // ── 성장 패널 업데이트 ──
 function updateGrowthBar() {
@@ -2344,7 +2371,7 @@ function showLobbyCharDetail() {
           <div style="font-size:11px;font-weight:700;color:${col};margin-top:4px;opacity:0.85;">${typeLabel}</div>
           <div style="font-size:10px;color:rgba(255,255,255,0.32);margin-top:2px;line-height:1.4;">${ch.desc}</div>
         </div>
-        <button onclick="document.getElementById('_lobbyCharDetail').remove()"
+        <button onclick="history.back()"
           style="flex-shrink:0;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.08);
           border:1px solid rgba(255,255,255,0.14);color:rgba(255,255,255,0.5);font-size:14px;
           cursor:pointer;line-height:1;align-self:flex-start;margin-top:2px;">✕</button>
@@ -2366,7 +2393,8 @@ function showLobbyCharDetail() {
       </div>
     </div>
     <style>@keyframes _ldAnim{from{opacity:0;transform:scale(0.88)}to{opacity:1;transform:scale(1)}}</style>`;
-  ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+  ov.addEventListener('click', e => { if (e.target === ov) history.back(); });
+  _pushBack(() => { const el = document.getElementById('_lobbyCharDetail'); if (el) el.remove(); });
   document.body.appendChild(ov);
 }
 
@@ -2751,7 +2779,7 @@ function showEquipOverlay(focusSlot) {
     const inventory = prem.inventory.map(id => EQUIPMENT_POOL.find(e=>e.id===id)).filter(Boolean);
 
     ov.innerHTML = `<div class="lb-ov-inner">
-      <div class="lb-ov-head"><span>🎒 장비 관리</span><button onclick="this.closest('.lb-overlay').remove();window._lobbyRender&&window._lobbyRender()">✕</button></div>
+      <div class="lb-ov-head"><span>🎒 장비 관리</span><button onclick="history.back()">✕</button></div>
 
       <div style="display:flex;gap:8px;margin-bottom:12px">
         ${slots.map(s=>`<button onclick="window._eqSlot='${s}';this.closest('.lb-overlay').querySelectorAll('.slot-tab').forEach(b=>b.classList.remove('lb-tab-active'));this.classList.add('lb-tab-active');this.closest('.lb-overlay').querySelector('#eqList').innerHTML=renderEqList('${s}')" class="slot-tab lb-tab ${s===activeSlot?'lb-tab-active':''}">${slotLabel[s]}</button>`).join('')}
@@ -2810,6 +2838,7 @@ function showEquipOverlay(focusSlot) {
   };
 
   render();
+  _pushBack(() => { if (ov.isConnected) { ov.remove(); window._lobbyRender && window._lobbyRender(); } });
   document.body.appendChild(ov);
 }
 
@@ -3008,7 +3037,7 @@ function showStoreOverlay() {
   const hasMonthly = prem.subExpiry && prem.subExpiry.monthly && new Date(prem.subExpiry.monthly) > new Date();
 
   ov.innerHTML = `<div class="lb-ov-inner" style="max-height:88vh;overflow-y:auto">
-    <div class="lb-ov-head"><span>💰 상점</span><button onclick="this.closest('.lb-overlay').remove();window._lobbyRender&&window._lobbyRender()">✕</button></div>
+    <div class="lb-ov-head"><span>💰 상점</span><button onclick="history.back()">✕</button></div>
 
     ${_IAP_TEST_MODE?'<div style="font-size:10px;color:#4a9eff;text-align:center;padding:4px 0 10px;opacity:0.8">🛠 개발 테스트 모드 — 실제 결제 없음</div>':''}
 
@@ -3129,6 +3158,7 @@ function showStoreOverlay() {
     });
   };
 
+  _pushBack(() => { if (ov.isConnected) { ov.remove(); window._lobbyRender && window._lobbyRender(); } });
   document.body.appendChild(ov);
 }
 
@@ -3152,7 +3182,7 @@ function showBattlePassOverlay() {
     }).join('');
 
     ov.innerHTML = `<div class="lb-ov-inner">
-      <div class="lb-ov-head"><span>🎖️ 배틀 패스</span><button onclick="this.closest('.lb-overlay').remove()">✕</button></div>
+      <div class="lb-ov-head"><span>🎖️ 배틀 패스</span><button onclick="history.back()">✕</button></div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <div style="flex:1">
           <div style="font-size:12px;color:#aaa">Lv.${prem.bpLevel} · XP ${prem.bpXp}/${xpPerLevel}</div>
@@ -3193,6 +3223,7 @@ function showBattlePassOverlay() {
   }
 
   render();
+  _pushBack(() => { if (ov.isConnected) ov.remove(); });
   document.body.appendChild(ov);
 }
 
@@ -3253,7 +3284,7 @@ function showGachaOverlay() {
     ov.innerHTML = `<div class="lb-ov-inner" style="padding-bottom:24px">
       <div class="lb-ov-head">
         <span>🎰 뽑기</span>
-        <button onclick="this.closest('.lb-overlay').remove();window._lobbyRender&&window._lobbyRender()">✕</button>
+        <button onclick="history.back()">✕</button>
       </div>
 
       <!-- 배너 -->
@@ -3342,6 +3373,7 @@ function showGachaOverlay() {
   }
 
   renderMain();
+  _pushBack(() => { if (ov.isConnected) { ov.remove(); window._lobbyRender && window._lobbyRender(); } });
   document.body.appendChild(ov);
 }
 
@@ -3953,6 +3985,7 @@ function generateShopInventory() {
 }
 
 function startNewRun() {
+  window._backStack = []; // 새 런 시작 시 뒤로가기 스택 초기화
   gs.act = 1;
   gs.currentLayer = 0;
   gs.currentNodeId = null;
@@ -3976,7 +4009,7 @@ function startNewRun() {
   gs._maxCombo = 0;
   gs._perfectWaves = 0;
   gs._runStartTime = Date.now();
-  gs.gold = 100;
+  gs.gold = 60;
   gs.deck = [];
   gs.shieldCount = 0;
   gs.totalKills = 0;
@@ -4051,6 +4084,7 @@ function _updateBuildBadge() {
 
 let mapAnimId = null;
 function showMapScreen() {
+  window._backStack = []; // 지도로 돌아올 때 뒤로가기 스택 초기화
   showScreen('mapScreen');
   _updateBuildBadge();
   document.getElementById('mapFloorLabel').textContent = `ACT ${gs.act}`;
@@ -7309,8 +7343,8 @@ function updateBattle() {
   bt.fireTimer++;
   const _catFrenzyActive = (gs.selectedChar?.id === 'cat') && (bt._catFrenzy||0) > 0;
   const fireInterval = _catFrenzyActive
-    ? Math.max(3, Math.floor((Math.max(6, 22 - Math.floor((s.fireRateBonus||0)/45))) / 2))
-    : Math.max(6, 22 - Math.floor((s.fireRateBonus||0)/45));
+    ? Math.max(3, Math.floor((Math.max(6, 30 - Math.floor((s.fireRateBonus||0)/25))) / 2))
+    : Math.max(6, 30 - Math.floor((s.fireRateBonus||0)/25));
   if(bt.fireTimer >= fireInterval && bt.enemies.length>0) {
     bt.fireTimer=0;
     // Math.hypot(sqrt) 대신 제곱 거리로 최근 적 탐색 — sqrt 연산 n회 절감
@@ -12120,6 +12154,7 @@ document.getElementById('deckBtn').onclick = () => showDeckScreen();
 // ═══════════════════════════════════════════════
 function showShop() {
   trackMission('shop', 1);
+  _pushBack(() => showMapScreen());
   showScreen('shopScreen');
   const _shopTitle = document.getElementById('shopTitle');
   if (_shopTitle) _shopTitle.textContent = t('🏪 상점', '🏪 Shop');
@@ -12645,6 +12680,7 @@ function toggleBattleSpeed() {
 // ═══════════════════════════════════════════════
 function showRest() {
   trackMission('rest', 1);
+  _pushBack(() => showMapScreen());
   showScreen('restScreen');
   const opts = document.getElementById('restOptions');
   opts.innerHTML = '';
@@ -13302,6 +13338,7 @@ function showBossVictory() {
 //  로비로 이동 — 어디서든 안전하게 호출 가능
 // ═══════════════════════════════════════════════
 function goToLobby(overlayEl, keepSave = false) {
+  window._backStack = []; // 로비 복귀 시 뒤로가기 스택 초기화
   // 배틀루프가 gs.screen !== '__battle__' 이면 자기종료하므로 먼저 세팅
   gs.screen = 'startScreen';
   if (battleAnimId) { cancelAnimationFrame(battleAnimId); battleAnimId = null; }
