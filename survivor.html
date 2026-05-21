@@ -2336,6 +2336,43 @@ async function _loadResFromGitHub(showFeedback) {
   }
 }
 
+// ── GitHub 동기화 버튼 글로벌 핸들러 (onclick 속성에서 직접 호출) ──
+window._ghDoTokenSave = function() {
+  const input = document.getElementById('_ghTokenInput');
+  const token = (input ? input.value : '').trim();
+  if (token) {
+    localStorage.setItem(_GH_TOKEN_KEY, token);
+    showToast('✅ 토큰 저장됨! GitHub 동기화 준비 완료', 1800);
+  } else {
+    localStorage.removeItem(_GH_TOKEN_KEY);
+    showToast('🗑 토큰 삭제됨', 1200);
+  }
+  // 리소스 오버레이가 열려있으면 새로고침
+  const ov = document.querySelector('.lb-overlay');
+  if (ov && ov._renderRes) ov._renderRes();
+};
+
+window._ghDoUpload = function() {
+  const token = localStorage.getItem(_GH_TOKEN_KEY);
+  if (!token) { showToast('⚠️ 먼저 GitHub 토큰을 저장하세요', 1800); return; }
+  showToast('⬆️ GitHub에 업로드 중...', 1500);
+  _syncResToGitHub(token, () => {
+    const ov = document.querySelector('.lb-overlay');
+    if (ov && ov._renderRes) ov._renderRes();
+  });
+};
+
+window._ghDoDownload = function() {
+  showToast('⬇️ GitHub에서 가져오는 중...', 1500);
+  _loadResFromGitHub(true).then(n => {
+    if (n > 0) {
+      showToast(`✅ ${n}개 리소스 적용 완료!`, 2000);
+      const ov = document.querySelector('.lb-overlay');
+      if (ov && ov._renderRes) ov._renderRes();
+    }
+  });
+};
+
 // 모든 리소스 GitHub에 업로드 (압축 후)
 async function _syncResToGitHub(token, onDone) {
   if (!token) return;
@@ -2468,13 +2505,13 @@ function showResourceOverlay() {
         <div style="display:flex;gap:6px;margin-bottom:8px">
           <input id="_ghTokenInput" type="password" placeholder="ghp_xxxx..." value="${savedToken}"
             style="flex:1;padding:7px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:#d8e4f0;font-size:11px;font-family:'Jua',sans-serif">
-          <button id="_ghTokenSave" style="padding:7px 14px;border-radius:8px;border:1px solid rgba(80,200,120,0.4);background:rgba(10,50,25,0.9);color:#60e890;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:'Jua',sans-serif">저장</button>
+          <button onclick="window._ghDoTokenSave()" style="padding:7px 14px;border-radius:8px;border:1px solid rgba(80,200,120,0.4);background:rgba(10,50,25,0.9);color:#60e890;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:'Jua',sans-serif">저장</button>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button id="_ghSyncUp" style="flex:1;min-width:140px;padding:8px 10px;border-radius:8px;border:1px solid rgba(80,200,120,0.45);background:rgba(10,50,25,0.9);color:#60e890;font-size:12px;font-weight:700;cursor:pointer;font-family:'Jua',sans-serif${isLinked?'':';opacity:0.4'}">
+          <button onclick="window._ghDoUpload()" style="flex:1;min-width:140px;padding:8px 10px;border-radius:8px;border:1px solid rgba(80,200,120,0.45);background:rgba(10,50,25,0.9);color:#60e890;font-size:12px;font-weight:700;cursor:pointer;font-family:'Jua',sans-serif${isLinked?'':';opacity:0.4'}">
             ⬆️ GitHub에 업로드
           </button>
-          <button id="_ghSyncDown" style="flex:1;min-width:140px;padding:8px 10px;border-radius:8px;border:1px solid rgba(80,160,255,0.45);background:rgba(10,25,50,0.9);color:#80c8ff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Jua',sans-serif">
+          <button onclick="window._ghDoDownload()" style="flex:1;min-width:140px;padding:8px 10px;border-radius:8px;border:1px solid rgba(80,160,255,0.45);background:rgba(10,25,50,0.9);color:#80c8ff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Jua',sans-serif">
             ⬇️ GitHub에서 가져오기
           </button>
         </div>
@@ -2591,43 +2628,7 @@ function showResourceOverlay() {
     });
   }
 
-  // ── 이벤트 위임: 오버레이 전체에 한 번만 붙임 (renderRes 재호출 후에도 작동) ──
-  ov.addEventListener('click', e => {
-    const id = e.target.id || e.target.closest('button')?.id;
-
-    if (id === '_ghTokenSave') {
-      const token = (ov.querySelector('#_ghTokenInput')?.value || '').trim();
-      if (token) {
-        localStorage.setItem(_GH_TOKEN_KEY, token);
-        showToast('✅ 토큰 저장됨! GitHub 동기화 준비 완료', 1800);
-      } else {
-        localStorage.removeItem(_GH_TOKEN_KEY);
-        showToast('🗑 토큰 삭제됨', 1200);
-      }
-      renderRes();
-      return;
-    }
-
-    if (id === '_ghSyncUp') {
-      const token = localStorage.getItem(_GH_TOKEN_KEY);
-      if (!token) { showToast('⚠️ 먼저 GitHub 토큰을 저장하세요', 1800); return; }
-      showToast('⬆️ GitHub에 업로드 중...', 1500);
-      _syncResToGitHub(token, renderRes);
-      return;
-    }
-
-    if (id === '_ghSyncDown') {
-      showToast('⬇️ GitHub에서 가져오는 중...', 1500);
-      _loadResFromGitHub(true).then(n => {
-        if (n > 0) {
-          showToast(`✅ ${n}개 리소스 적용 완료!`, 2000);
-          renderRes();
-        }
-      });
-      return;
-    }
-  });
-
+  ov._renderRes = renderRes; // 글로벌 핸들러에서 접근 가능하게
   renderRes();
   ov._doClose = _pushBack(() => { if (ov.isConnected) ov.remove(); });
   document.body.appendChild(ov);
