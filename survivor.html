@@ -4621,50 +4621,79 @@ function enterNode(node) {
 }
 
 function enterTreasureNode() {
-  // 💰 보물 노드: 골드 보상 + 카드 or 유물 중 선택
-  const goldGain = 50 + Math.floor(Math.random() * 31); // 50~80
+  // 💰 보물 노드: 소량 골드 즉시 + 3가지 추가 보상 중 선택
+  const goldGain = 30 + Math.floor(Math.random() * 21); // 30~50 (선택 보상과 합산)
   gs.gold += goldGain;
   gs._totalGoldEarned = (gs._totalGoldEarned||0) + goldGain;
   playSound(660, 0.25, 'sine', 0.08); playSound(880, 0.2, 'sine', 0.06);
   setTimeout(() => playSound(1100, 0.18, 'sine', 0.05), 120);
 
+  // 상인의 가방 골드: ACT가 높을수록 더 많이 (상점 가격 스케일 반영)
+  const bagGold = 55 + (gs.act - 1) * 20 + Math.floor(Math.random() * 16); // ACT1:55~70 / ACT2:75~90 / ACT3:95~110
+
+  const btnBase = `padding:16px 22px;border-radius:16px;font-family:'Jua',sans-serif;font-size:14px;
+    cursor:pointer;transition:all 0.2s;width:160px;text-align:center;line-height:1.4;`;
+
   // 선택 오버레이
   const ov = document.createElement('div');
   ov.style.cssText = `position:fixed;inset:0;z-index:7000;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;gap:20px;
-    background:rgba(4,8,20,0.92);opacity:0;transition:opacity 0.3s ease;`;
+    align-items:center;justify-content:center;gap:18px;
+    background:rgba(4,8,20,0.93);opacity:0;transition:opacity 0.3s ease;`;
   ov.innerHTML = `
-    <div style="font-size:56px;filter:drop-shadow(0 0 24px #ffd060);">💰</div>
-    <div style="font-family:'Cinzel',serif;font-size:24px;color:#ffd060;text-shadow:0 0 16px #ffd06088;font-weight:700;">보물 발견!</div>
-    <div style="font-size:15px;color:#c8d8e8;">+${goldGain} 🪙 획득</div>
-    <div style="font-size:13px;color:#7090b0;margin-top:-8px;">추가 보상을 선택하세요</div>
-    <div style="display:flex;gap:16px;margin-top:4px;">
-      <button id="_treasureCard" style="padding:14px 28px;border-radius:14px;border:1px solid rgba(200,160,80,0.5);
-        background:rgba(20,30,60,0.9);color:#e8d090;font-family:'Jua',sans-serif;font-size:15px;cursor:pointer;
-        transition:all 0.18s;box-shadow:0 2px 16px rgba(200,160,0,0.15);">
-        📜 룬 선택 <span style="font-size:11px;color:#8090a8;display:block;margin-top:2px;">카드 3장 중 1장</span>
+    <div style="font-size:54px;filter:drop-shadow(0 0 24px #ffd060);">💰</div>
+    <div style="font-family:'Cinzel',serif;font-size:22px;color:#ffd060;text-shadow:0 0 16px #ffd06088;font-weight:700;">보물 발견!</div>
+    <div style="font-size:14px;color:#c8d8e8;">+${goldGain} 🪙 선취득</div>
+    <div style="font-size:12px;color:#6080a0;margin-top:-6px;">추가 보상을 하나 선택하세요</div>
+    <div style="display:flex;gap:14px;margin-top:4px;flex-wrap:wrap;justify-content:center;">
+      <button id="_treasureCard" style="${btnBase}border:1px solid rgba(200,160,80,0.55);
+        background:rgba(20,30,60,0.9);color:#e8d090;box-shadow:0 2px 16px rgba(200,160,0,0.15);">
+        📜 룬 선택
+        <span style="font-size:10px;color:#7080a0;display:block;margin-top:4px;">카드 3장 중 1장</span>
       </button>
-      <button id="_treasureRelic" style="padding:14px 28px;border-radius:14px;border:1px solid rgba(160,100,255,0.5);
-        background:rgba(20,30,60,0.9);color:#c090ff;font-family:'Jua',sans-serif;font-size:15px;cursor:pointer;
-        transition:all 0.18s;box-shadow:0 2px 16px rgba(120,60,200,0.15);">
-        🏺 유물 선택 <span style="font-size:11px;color:#8090a8;display:block;margin-top:2px;">유물 2종 중 1개</span>
+      <button id="_treasureRelic" style="${btnBase}border:1px solid rgba(160,100,255,0.55);
+        background:rgba(20,30,60,0.9);color:#c090ff;box-shadow:0 2px 16px rgba(120,60,200,0.15);">
+        🏺 유물 선택
+        <span style="font-size:10px;color:#7080a0;display:block;margin-top:4px;">유물 2종 중 1개</span>
+      </button>
+      <button id="_treasureGold" style="${btnBase}border:1px solid rgba(200,160,40,0.55);
+        background:rgba(20,28,10,0.9);color:#f0c840;box-shadow:0 2px 16px rgba(180,140,0,0.18);">
+        🪙 상인의 가방
+        <span style="font-size:10px;color:#7080a0;display:block;margin-top:4px;">+${bagGold} 골드 획득</span>
       </button>
     </div>`;
   document.body.appendChild(ov);
   requestAnimationFrame(() => ov.style.opacity = '1');
 
+  // 버튼 호버 효과
+  ['_treasureCard','_treasureRelic','_treasureGold'].forEach(id => {
+    const btn = ov.querySelector('#'+id);
+    btn.addEventListener('mouseenter', () => btn.style.transform = 'translateY(-3px) scale(1.04)');
+    btn.addEventListener('mouseleave', () => btn.style.transform = '');
+  });
+
   const close = (cb) => {
     ov.style.opacity = '0';
     setTimeout(() => { ov.remove(); cb(); }, 300);
   };
-  document.getElementById('_treasureCard').onclick = () => {
+
+  ov.querySelector('#_treasureCard').onclick = () => {
     close(() => showCardSelection(() => showMapScreen(), {
       title: t('💰 보물 — 룬 선택','💰 Treasure — Choose Rune'),
       sub:   t('카드 1장을 선택하세요','Choose a rune'), count: 3
     }));
   };
-  document.getElementById('_treasureRelic').onclick = () => {
+  ov.querySelector('#_treasureRelic').onclick = () => {
     close(() => showRelicSelection(1, () => showMapScreen()));
+  };
+  ov.querySelector('#_treasureGold').onclick = () => {
+    gs.gold += bagGold;
+    gs._totalGoldEarned = (gs._totalGoldEarned||0) + bagGold;
+    trackMission && trackMission('gold', bagGold);
+    playSound(880, 0.28, 'sine', 0.07);
+    setTimeout(() => playSound(1100, 0.22, 'sine', 0.06), 80);
+    setTimeout(() => playSound(1320, 0.18, 'sine', 0.05), 160);
+    showToast(`🪙 상인의 가방 +${bagGold} 골드!`, 2200);
+    close(() => showMapScreen());
   };
 }
 
