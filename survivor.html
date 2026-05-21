@@ -266,10 +266,10 @@ canvas{display:block;}
 .lb-top-btn:hover{background:#fff;transform:translateY(-1px);}
 
 /* 캐릭터 스테이지 */
-.lobby-stage{flex:1;min-height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;padding:0 0 4px;}
+.lobby-stage{flex:1;min-height:320px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;padding:0 0 4px;}
 .lobby-stage-glow{position:absolute;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,200,0.55) 0%,rgba(100,220,120,0.2) 50%,transparent 70%);animation:lbGlow 3s ease-in-out infinite;pointer-events:none;}
 @keyframes lbGlow{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(1.1);opacity:1}}
-.lobby-char-emo{font-size:96px;position:relative;z-index:2;line-height:1;animation:charBob 2.4s ease-in-out infinite;filter:drop-shadow(0 6px 16px rgba(0,0,0,0.22));cursor:default;user-select:none;font-family:'Apple Color Emoji','Noto Color Emoji','Segoe UI Emoji','Twemoji Mozilla',sans-serif;}
+.lobby-char-emo{font-size:clamp(100px,26vw,160px);position:relative;z-index:2;line-height:1;animation:charBob 2.4s ease-in-out infinite;filter:drop-shadow(0 8px 24px rgba(0,0,0,0.28));cursor:default;user-select:none;font-family:'Apple Color Emoji','Noto Color Emoji','Segoe UI Emoji','Twemoji Mozilla',sans-serif;}
 @keyframes charBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 .lobby-platform{width:120px;height:20px;border-radius:50%;background:radial-gradient(ellipse,rgba(0,0,0,0.25) 0%,transparent 70%);margin-top:-4px;animation:charBob 2.4s ease-in-out infinite reverse;}
 .lobby-char-name{font-family:'Cinzel',serif;font-size:22px;font-weight:800;color:#fff;margin-top:12px;text-shadow:0 2px 8px rgba(0,0,0,0.35),0 0 20px rgba(255,255,200,0.4);letter-spacing:1px;}
@@ -2227,8 +2227,8 @@ function _deleteRes(id) {
   delete window._RES[id];
 }
 
-// 캔버스에 리소스 이미지 그리기 헬퍼 (중앙 정렬)
-// size = 그릴 픽셀 크기 (직접 지정, 800×800 캔버스 기준)
+// 캔버스에 리소스 이미지 그리기 헬퍼 (중앙 정렬, 비율 유지)
+// size = 바운딩 박스 픽셀 크기 (직접 지정, 800×800 캔버스 기준)
 function _drawResImage(ctx, id, size) {
   const img = window._RES[id];
   if (!img || !img.complete || !img.naturalWidth) return false;
@@ -2239,8 +2239,11 @@ function _drawResImage(ctx, id, size) {
   // 고품질 스무딩
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  // size를 직접 px 크기로 사용 (호출부에서 적절한 크기 전달)
-  ctx.drawImage(img, -size / 2, -size / 2, size, size);
+  // 원본 비율 유지 (object-fit:contain 방식) — 찌부 방지
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  const scale = Math.min(size / iw, size / ih);
+  const dw = iw * scale, dh = ih * scale;
+  ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
   return true;
 }
 
@@ -2762,40 +2765,19 @@ function initLobby() {
           ${bestRecord&&bestRecord.act>0?`<div style="text-align:center;font-size:10px;color:rgba(255,200,50,0.8);margin-bottom:2px">🏆 최고: ACT${bestRecord.act} · ${bestRecord.kills}킬</div>`:''}
         </div>
 
-        <!-- 캐릭터 스테이지 -->
+        <!-- 캐릭터 스테이지 — 캐릭터 이미지만 중앙 배치 -->
         <div class="lobby-stage">
           <div class="lobby-stage-glow"></div>
           <button class="lb-arrow" style="left:10px" id="arrowL">‹</button>
 
-          <div style="text-align:center;z-index:2;position:relative;cursor:pointer" onclick="showLobbyCharDetail()">
-            ${locked ? `<div class="lobby-char-emo">🔒</div>` :
+          <!-- 캐릭터 이미지만 (이름/설명은 아래로 이동) -->
+          <div style="display:flex;flex-direction:column;align-items:center;z-index:2;position:relative;cursor:pointer" onclick="showLobbyCharDetail()">
+            ${locked ? `<div class="lobby-char-emo" style="font-size:120px">🔒</div>` :
               (window._RES[`char_${ch.id}`] && window._RES[`char_${ch.id}`].complete && window._RES[`char_${ch.id}`].naturalWidth)
-                ? `<img src="${localStorage.getItem(_RES_PREFIX+'char_'+ch.id)||''}" class="lobby-char-emo" style="width:min(240px,65vw);height:min(240px,65vw);object-fit:contain;image-rendering:auto">`
-                : `<div class="lobby-char-emo">${ch.emoji}</div>`
+                ? `<img src="${localStorage.getItem(_RES_PREFIX+'char_'+ch.id)||''}" class="lobby-char-emo" style="width:min(380px,82vw);height:auto;max-height:50vh;object-fit:contain;image-rendering:auto;display:block">`
+                : `<div class="lobby-char-emo" style="font-size:clamp(96px,28vw,180px)">${ch.emoji}</div>`
             }
             <div class="lobby-platform"></div>
-            <div class="lobby-char-name">${ch.name}</div>
-            <div class="lobby-char-desc">${ch.desc}</div>
-            ${locked ? `<div class="lobby-char-locked" style="width:90%;margin:10px auto 0">
-  <div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,0.7);margin-bottom:4px">
-    <span>🔒 처치 ${Math.min(meta.totalKills, ch.unlockKills).toLocaleString()} / ${ch.unlockKills.toLocaleString()}</span>
-    <span>${Math.min(100,Math.floor(meta.totalKills/ch.unlockKills*100))}%</span>
-  </div>
-  <div style="height:6px;background:rgba(0,0,0,0.3);border-radius:3px;overflow:hidden">
-    <div style="width:${Math.min(100,Math.floor(meta.totalKills/ch.unlockKills*100))}%;height:100%;background:linear-gradient(90deg,#4a9eff,#7dd8ff);border-radius:3px;transition:width 0.5s"></div>
-  </div>
-</div>` :
-`<div style="display:flex;gap:5px;justify-content:center;flex-wrap:wrap;margin-top:8px;max-width:220px;margin-left:auto;margin-right:auto">
-  <span style="background:rgba(255,80,80,0.25);border:1px solid rgba(255,80,80,0.4);border-radius:100px;padding:3px 9px;font-size:10px;font-weight:700;color:#ff8888">❤️ ${ch.hp}</span>
-  ${Object.entries(ch.bonuses||{}).slice(0,3).map(([k,v])=>{
-    const labels={bulletCount:'탄수',bulletSpeed:'탄속',sword:'검',lightning:'번개',aoe:'폭발',regen:'재생',dash:'대시',shield:'보호막',speed:'속도',fireRateBonus:'연사'};
-    const col=v>0?'rgba(78,207,122,0.25)':'rgba(232,80,80,0.25)';
-    const bc=v>0?'rgba(78,207,122,0.4)':'rgba(232,80,80,0.4)';
-    const tc=v>0?'#88ff88':'#ff8888';
-    const sign=v>0?'+':'';
-    return `<span style="background:${col};border:1px solid ${bc};border-radius:100px;padding:3px 9px;font-size:10px;font-weight:700;color:${tc}">${labels[k]||k} ${sign}${v}</span>`;
-  }).join('')}
-</div>`}
           </div>
 
           <button class="lb-arrow" style="right:10px" id="arrowR">›</button>
@@ -2807,6 +2789,32 @@ function initLobby() {
   border:${!c.unlocked&&i!==curCharIdx?'1px solid rgba(255,255,255,0.2)':'none'};
   transition:all 0.2s;cursor:pointer" onclick="(()=>{curCharIdx=${i};meta.selectedChar='${c.id}';saveMeta();renderLobby();})()" title="${c.name}${c.unlocked?'':' 🔒'}"></div>`).join('')}
           </div>
+        </div>
+
+        <!-- 캐릭터 이름·설명·스탯 (스테이지 아래, flex-shrink:0) -->
+        <div style="text-align:center;flex-shrink:0;padding:0 16px 6px">
+          <div class="lobby-char-name">${ch.name}</div>
+          <div class="lobby-char-desc">${ch.desc}</div>
+          ${locked ? `<div class="lobby-char-locked" style="width:90%;margin:8px auto 0">
+  <div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,0.7);margin-bottom:4px">
+    <span>🔒 처치 ${Math.min(meta.totalKills, ch.unlockKills).toLocaleString()} / ${ch.unlockKills.toLocaleString()}</span>
+    <span>${Math.min(100,Math.floor(meta.totalKills/ch.unlockKills*100))}%</span>
+  </div>
+  <div style="height:6px;background:rgba(0,0,0,0.3);border-radius:3px;overflow:hidden">
+    <div style="width:${Math.min(100,Math.floor(meta.totalKills/ch.unlockKills*100))}%;height:100%;background:linear-gradient(90deg,#4a9eff,#7dd8ff);border-radius:3px;transition:width 0.5s"></div>
+  </div>
+</div>` :
+`<div style="display:flex;gap:5px;justify-content:center;flex-wrap:wrap;margin-top:6px;max-width:260px;margin-left:auto;margin-right:auto">
+  <span style="background:rgba(255,80,80,0.25);border:1px solid rgba(255,80,80,0.4);border-radius:100px;padding:3px 9px;font-size:10px;font-weight:700;color:#ff8888">❤️ ${ch.hp}</span>
+  ${Object.entries(ch.bonuses||{}).slice(0,3).map(([k,v])=>{
+    const labels={bulletCount:'탄수',bulletSpeed:'탄속',sword:'검',lightning:'번개',aoe:'폭발',regen:'재생',dash:'대시',shield:'보호막',speed:'속도',fireRateBonus:'연사'};
+    const col=v>0?'rgba(78,207,122,0.25)':'rgba(232,80,80,0.25)';
+    const bc=v>0?'rgba(78,207,122,0.4)':'rgba(232,80,80,0.4)';
+    const tc=v>0?'#88ff88':'#ff8888';
+    const sign=v>0?'+':'';
+    return `<span style="background:${col};border:1px solid ${bc};border-radius:100px;padding:3px 9px;font-size:10px;font-weight:700;color:${tc}">${labels[k]||k} ${sign}${v}</span>`;
+  }).join('')}
+</div>`}
         </div>
 
         <!-- 런 통계 미니 -->
@@ -9763,7 +9771,9 @@ function drawBattle(){
   } else {
     if(!_hasResImg){gctx.shadowColor='rgba(140,80,255,0.6)';gctx.shadowBlur=14;}
   }
-  const pAngle=Math.atan2(p.dirY,p.dirX);gctx.rotate(pAngle+Math.PI/2);
+  const pAngle=Math.atan2(p.dirY,p.dirX);
+  // 리소스 이미지는 항상 정방향 (회전 없음) — 커스텀 드로잉만 방향 회전
+  if (!_hasResImg) gctx.rotate(pAngle+Math.PI/2);
   // 살짝 위아래 흔들리며 캐릭터 그리기
   gctx.translate(0, Math.sin(_drawNow/150)*2);
   drawPlayerCharacter(gctx, gs.selectedChar.id, p.size);
