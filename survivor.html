@@ -241,7 +241,8 @@ canvas{display:block;}
 ══════════════════════════════════════ */
 #startScreen{flex-direction:column;align-items:stretch;justify-content:flex-start;padding:0;overflow:hidden;
   background:linear-gradient(180deg,#4ab8e8 0%,#7dd8f0 28%,#b8f0c8 60%,#6ed450 82%,#50b838 100%);}
-.lobby-wrap{width:100%;max-width:440px;margin:0 auto;height:100%;display:flex;flex-direction:column;position:relative;overflow-y:auto;overflow-x:hidden;}
+.lobby-wrap{width:100%;max-width:440px;margin:0 auto;height:100%;display:flex;flex-direction:column;position:relative;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;-ms-overflow-style:none;}
+.lobby-wrap::-webkit-scrollbar{display:none;}
 
 /* 구름 장식 */
 .lob-cloud{position:absolute;border-radius:100px;background:#fff;opacity:0.88;pointer-events:none;}
@@ -2283,6 +2284,90 @@ function _importResJSON(file, onDone) {
   reader.readAsText(file);
 }
 
+// ─── GitHub 클라우드 동기화 ───
+const _GH_OWNER = 'GoldMir-95';
+const _GH_REPO  = 'wild-last-stand';
+const _GH_FILE  = 'resources.json';
+const _GH_BRANCH = 'main';
+const _GH_TOKEN_KEY = '_ghSyncToken_v1';
+const _GH_RAW_URL = `https://raw.githubusercontent.com/${_GH_OWNER}/${_GH_REPO}/${_GH_BRANCH}/${_GH_FILE}`;
+const _GH_API_URL = `https://api.github.com/repos/${_GH_OWNER}/${_GH_REPO}/contents/${_GH_FILE}`;
+
+// 이미지 압축 (최대 512px, WebP 0.85) — 파일 크기 절약
+function _compressImageB64(b64Src, cb) {
+  const img = new Image();
+  img.onload = () => {
+    const MAX = 512;
+    let w = img.naturalWidth, h = img.naturalHeight;
+    const s = Math.min(1, MAX / Math.max(w, h));
+    w = Math.round(w * s); h = Math.round(h * s);
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    c.getContext('2d').drawImage(img, 0, 0, w, h);
+    cb(c.toDataURL('image/webp', 0.85) || c.toDataURL('image/jpeg', 0.85));
+  };
+  img.onerror = () => cb(b64Src); // 압축 실패 시 원본 사용
+  img.src = b64Src;
+}
+
+// GitHub에서 리소스 로드 (게임 시작 시 호출)
+async function _loadResFromGitHub() {
+  try {
+    const r = await fetch(_GH_RAW_URL + '?_=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) return;
+    const data = await r.json();
+    let n = 0;
+    for (const [id, b64] of Object.entries(data)) {
+      if (typeof b64 === 'string' && b64.startsWith('data:image/')) { _saveRes(id, b64); n++; }
+    }
+    if (n) console.log(`[Res] GitHub에서 ${n}개 로드`);
+  } catch(e) { /* 오프라인 or 파일 없음 → 무시 */ }
+}
+
+// 모든 리소스 GitHub에 업로드 (압축 후)
+async function _syncResToGitHub(token, onDone) {
+  if (!token) return;
+  try {
+    // 1. 로컬 리소스 수집 + 압축
+    const raw = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(_RES_PREFIX)) raw[k.slice(_RES_PREFIX.length)] = localStorage.getItem(k);
+    }
+    if (!Object.keys(raw).length) { showToast('⚠️ 업로드할 리소스가 없습니다', 1500); return; }
+
+    // 압축 실행 (모두 병렬)
+    const data = {};
+    await Promise.all(Object.entries(raw).map(([id, b64]) =>
+      new Promise(res => _compressImageB64(b64, c => { data[id] = c; res(); }))
+    ));
+
+    // 2. 기존 파일 SHA 가져오기
+    let sha = null;
+    try {
+      const chk = await fetch(_GH_API_URL, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github.v3+json' }
+      });
+      if (chk.ok) { const j = await chk.json(); sha = j.sha; }
+    } catch(e) {}
+
+    // 3. PUT (create / update)
+    const body = {
+      message: '🎮 Update game resources',
+      content: btoa(unescape(encodeURIComponent(JSON.stringify(data)))),
+      branch: _GH_BRANCH,
+      ...(sha ? { sha } : {})
+    };
+    const r = await fetch(_GH_API_URL, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/vnd.github.v3+json' },
+      body: JSON.stringify(body)
+    });
+    if (r.ok) { showToast('☁️ GitHub 동기화 완료! 다른 기기에서 새로고침하면 적용됩니다', 3000); if (onDone) onDone(); }
+    else { const err = await r.json().catch(()=>{}); showToast(`⚠️ GitHub 오류: ${err?.message || r.status}`, 2500); }
+  } catch(e) { showToast('⚠️ 네트워크 오류: ' + e.message, 2000); }
+}
+
 // 리소스 정의 목록
 const _RES_DEFS = {
   char: [
@@ -2350,21 +2435,48 @@ function showResourceOverlay() {
         슬롯에 이미지를 <strong style="color:#a0c8ff">드래그해서 놓거나</strong> 클릭해서 업로드하세요.<br>
         <span style="color:#4a9eff">투명 배경 PNG 권장 · 최대 3MB</span>
       </div>
-      <div style="background:rgba(60,140,255,0.08);border:1px solid rgba(60,140,255,0.3);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
-        <div style="font-size:11px;font-weight:700;color:#80c8ff;margin-bottom:7px">📲 다른 기기에서 사용하려면</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button id="_resExport" style="flex:1;min-width:120px;padding:8px 10px;border-radius:8px;border:1px solid rgba(80,180,255,0.45);background:rgba(10,30,70,0.9);color:#80c8ff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Jua',sans-serif">
-            📤 내보내기 (JSON)
+      <!-- ☁️ GitHub 자동 동기화 -->
+      ${(() => {
+        const savedToken = localStorage.getItem(_GH_TOKEN_KEY) || '';
+        const isLinked = !!savedToken;
+        return `<div style="background:rgba(60,200,120,0.08);border:1px solid ${isLinked?'rgba(60,200,120,0.4)':'rgba(255,255,255,0.12)'};border-radius:12px;padding:12px 14px;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:800;color:${isLinked?'#60e890':'#80c8ff'};margin-bottom:8px">
+          ☁️ ${isLinked?'GitHub 동기화 연결됨 ✓':'GitHub 자동 동기화 설정'}
+        </div>
+        <div style="font-size:10px;color:#5a8a6a;margin-bottom:8px;line-height:1.5">
+          GitHub Personal Access Token을 입력하면 업로드한 리소스가 자동으로 모든 기기에 동기화됩니다.<br>
+          <a href="https://github.com/settings/tokens/new?scopes=public_repo&description=WildLastStand" target="_blank" style="color:#4af;text-decoration:underline">토큰 발급 (public_repo 권한)</a>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <input id="_ghTokenInput" type="password" placeholder="ghp_xxxx..." value="${savedToken}"
+            style="flex:1;padding:7px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:#d8e4f0;font-size:11px;font-family:'Jua',sans-serif">
+          <button id="_ghTokenSave" style="padding:7px 14px;border-radius:8px;border:1px solid rgba(80,200,120,0.4);background:rgba(10,50,25,0.9);color:#60e890;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:'Jua',sans-serif">저장</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button id="_ghSyncUp" style="flex:1;min-width:140px;padding:8px 10px;border-radius:8px;border:1px solid rgba(80,200,120,0.45);background:rgba(10,50,25,0.9);color:#60e890;font-size:12px;font-weight:700;cursor:pointer;font-family:'Jua',sans-serif${isLinked?'':';opacity:0.4'}">
+            ⬆️ GitHub에 업로드
           </button>
-          <label id="_resImportLabel" style="flex:1;min-width:120px;padding:8px 10px;border-radius:8px;border:1px solid rgba(80,220,120,0.45);background:rgba(10,40,20,0.9);color:#80e8a0;font-size:12px;font-weight:700;cursor:pointer;font-family:'Jua',sans-serif;display:flex;align-items:center;justify-content:center">
-            📥 가져오기 (JSON)
+          <button id="_ghSyncDown" style="flex:1;min-width:140px;padding:8px 10px;border-radius:8px;border:1px solid rgba(80,160,255,0.45);background:rgba(10,25,50,0.9);color:#80c8ff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Jua',sans-serif">
+            ⬇️ GitHub에서 가져오기
+          </button>
+        </div>
+      </div>`;
+      })()}
+      <!-- 📦 수동 JSON 내보내기/가져오기 -->
+      <div style="background:rgba(60,140,255,0.06);border:1px solid rgba(60,140,255,0.2);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:700;color:#6090d0;margin-bottom:7px">📦 수동 파일 공유 (GitHub 없이)</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="_resExport" style="flex:1;min-width:120px;padding:8px 10px;border-radius:8px;border:1px solid rgba(80,180,255,0.35);background:rgba(10,25,60,0.9);color:#80c8ff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Jua',sans-serif">
+            📤 JSON 내보내기
+          </button>
+          <label style="flex:1;min-width:120px;padding:8px 10px;border-radius:8px;border:1px solid rgba(80,220,120,0.35);background:rgba(10,40,20,0.9);color:#80e8a0;font-size:12px;font-weight:700;cursor:pointer;font-family:'Jua',sans-serif;display:flex;align-items:center;justify-content:center">
+            📥 JSON 가져오기
             <input type="file" accept=".json" id="_resImportInput" style="display:none">
           </label>
         </div>
-        <div style="font-size:10px;color:#4a7a9a;margin-top:6px">내보내기 → JSON 파일 전송 → 다른 기기에서 가져오기</div>
       </div>
-      <div style="background:rgba(255,200,60,0.06);border:1px solid rgba(255,200,60,0.2);border-radius:8px;padding:7px 10px;margin-bottom:14px;font-size:10px;color:#886a30;line-height:1.4">
-        ⚠️ 이미지는 이 기기 브라우저에 저장됩니다 · 위의 JSON 내보내기로 다른 기기에 적용 가능
+      <div style="font-size:10px;color:#3a5a4a;margin-bottom:14px;line-height:1.4">
+        ℹ️ 이미지는 이 기기 브라우저에 저장됩니다 · GitHub 동기화로 자동 공유 가능
       </div>
       ${allGroups.map(g => `
         <div style="font-size:12px;font-weight:800;color:#c9a84c;letter-spacing:1px;margin:18px 0 10px">${g.title}</div>
@@ -2459,6 +2571,44 @@ function showResourceOverlay() {
       _importResJSON(this.files[0], renderRes);
       this.value = '';
     });
+
+    // ── GitHub 동기화 UI ──
+    const ghTokenSave = ov.querySelector('#_ghTokenSave');
+    const ghSyncUp    = ov.querySelector('#_ghSyncUp');
+    const ghSyncDown  = ov.querySelector('#_ghSyncDown');
+
+    if (ghTokenSave) {
+      ghTokenSave.addEventListener('click', () => {
+        const token = (ov.querySelector('#_ghTokenInput')?.value || '').trim();
+        if (token) {
+          localStorage.setItem(_GH_TOKEN_KEY, token);
+          showToast('✅ 토큰 저장됨! GitHub 동기화 준비 완료', 1800);
+        } else {
+          localStorage.removeItem(_GH_TOKEN_KEY);
+          showToast('🗑 토큰 삭제됨', 1200);
+        }
+        renderRes();
+      });
+    }
+
+    if (ghSyncUp) {
+      ghSyncUp.addEventListener('click', () => {
+        const token = localStorage.getItem(_GH_TOKEN_KEY);
+        if (!token) { showToast('⚠️ 먼저 GitHub 토큰을 저장하세요', 1800); return; }
+        showToast('⬆️ GitHub에 업로드 중...', 1500);
+        _syncResToGitHub(token, renderRes);
+      });
+    }
+
+    if (ghSyncDown) {
+      ghSyncDown.addEventListener('click', () => {
+        showToast('⬇️ GitHub에서 가져오는 중...', 1500);
+        _loadResFromGitHub().then(() => {
+          showToast('✅ GitHub 리소스 적용 완료!', 2000);
+          renderRes();
+        });
+      });
+    }
   }
 
   renderRes();
@@ -7654,6 +7804,16 @@ function updateBattle() {
     cam.x += (targetX - cam.x) * 0.10;
     cam.y += (targetY - cam.y) * 0.10;
   }
+  // ── 모바일 세로 전체화면: 플레이어 가시 영역 클램프 ──
+  {
+    const _cr = gameCanvas.getBoundingClientRect();
+    if (_cr.left < -1) { // 캔버스가 화면 밖으로 넘어간 경우 (세로 전체화면 모드)
+      const _scX = 800 / _cr.width;
+      const _visL = (-_cr.left) * _scX + 30; // 가시 좌측 + 30px 여유
+      const _visR = (window.innerWidth - _cr.left) * _scX - 30; // 가시 우측 - 30px 여유
+      p.x = Math.max(_visL, Math.min(_visR, p.x));
+    }
+  }
   if(bt.dashCooldown>0) bt.dashCooldown--;
   if((bt.playerSlowTimer||0)>0) bt.playerSlowTimer--;
 
@@ -10087,6 +10247,13 @@ function drawBattle(){
 
   // ── 모바일 터치 가이드 (쉬는 상태 — 손가락 안 올려뒀을 때) ──
   const _isTouch = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+  // 동적 조이스틱 위치 (세로 전체화면 시 가시 영역 내로 이동)
+  const _cr2 = gameCanvas.getBoundingClientRect();
+  const _hasOvf = _cr2.left < -1;
+  const _scX2 = 800 / _cr2.width;
+  const _joyGX = _hasOvf ? Math.round((-_cr2.left + 70) * _scX2) : 115; // 조이스틱 X
+  const _dashGX = _hasOvf ? Math.round((-_cr2.left + window.innerWidth - 70) * _scX2) : 688; // 대시 X
+  const _joyGY = 668, _dashGY = 688;
   if (_isTouch && !joystick.active && !bt.paused && !bt.won) {
     gctx.save();
     // 박동 효과 — 충분히 밝게 (0.75~0.90)
@@ -10094,18 +10261,18 @@ function drawBattle(){
     // 배경 반투명 원 (먼저 그려서 겹침 방지)
     gctx.globalAlpha = _pulse * 0.30;
     gctx.fillStyle = '#2060cc';
-    gctx.beginPath(); gctx.arc(115, 668, 54, 0, Math.PI * 2); gctx.fill();
+    gctx.beginPath(); gctx.arc(_joyGX, _joyGY, 54, 0, Math.PI * 2); gctx.fill();
     // 외곽 링
     gctx.globalAlpha = _pulse * 0.90;
     gctx.strokeStyle = '#60c0ff';
     gctx.lineWidth = 3;
     gctx.shadowColor = '#4af'; gctx.shadowBlur = 12;
-    gctx.beginPath(); gctx.arc(115, 668, 54, 0, Math.PI * 2); gctx.stroke();
+    gctx.beginPath(); gctx.arc(_joyGX, _joyGY, 54, 0, Math.PI * 2); gctx.stroke();
     // 안쪽 노브
     gctx.shadowBlur = 0;
     gctx.globalAlpha = _pulse * 0.85;
     gctx.fillStyle = 'rgba(180,220,255,0.65)';
-    gctx.beginPath(); gctx.arc(115, 668, 22, 0, Math.PI * 2); gctx.fill();
+    gctx.beginPath(); gctx.arc(_joyGX, _joyGY, 22, 0, Math.PI * 2); gctx.fill();
     // 십자 방향 화살표
     gctx.globalAlpha = _pulse;
     gctx.strokeStyle = '#fff';
@@ -10114,8 +10281,8 @@ function drawBattle(){
     gctx.lineCap = 'round';
     [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dx,dy]) => {
       gctx.beginPath();
-      gctx.moveTo(115 + dx*26, 668 + dy*26);
-      gctx.lineTo(115 + dx*42, 668 + dy*42);
+      gctx.moveTo(_joyGX + dx*26, _joyGY + dy*26);
+      gctx.lineTo(_joyGX + dx*42, _joyGY + dy*42);
       gctx.stroke();
     });
     // "이동" 텍스트
@@ -10125,7 +10292,7 @@ function drawBattle(){
     gctx.font = 'bold 13px Arial';
     gctx.textAlign = 'center';
     gctx.textBaseline = 'middle';
-    gctx.fillText('이동', 115, 668);
+    gctx.fillText('이동', _joyGX, _joyGY);
     gctx.restore();
   }
 
@@ -10139,24 +10306,24 @@ function drawBattle(){
     gctx.strokeStyle = _hasDash ? '#aef' : '#667';
     gctx.lineWidth = 2;
     gctx.shadowColor = _hasDash ? '#4af' : 'transparent'; gctx.shadowBlur = 8;
-    gctx.beginPath(); gctx.arc(688, 688, 38, 0, Math.PI * 2); gctx.stroke();
+    gctx.beginPath(); gctx.arc(_dashGX, _dashGY, 38, 0, Math.PI * 2); gctx.stroke();
     gctx.shadowBlur = 0;
     gctx.globalAlpha = _dashBase * 0.25;
     gctx.fillStyle = _hasDash ? '#aef' : '#445';
-    gctx.beginPath(); gctx.arc(688, 688, 36, 0, Math.PI * 2); gctx.fill();
+    gctx.beginPath(); gctx.arc(_dashGX, _dashGY, 36, 0, Math.PI * 2); gctx.fill();
     gctx.globalAlpha = _hasDash ? (_dashBase * 2.5) : 0.08;
     gctx.fillStyle = '#ffffff';
     gctx.font = '18px serif';
     gctx.textAlign = 'center';
     gctx.textBaseline = 'middle';
-    gctx.fillText(_hasDash ? '💫' : '—', 688, 688);
+    gctx.fillText(_hasDash ? '💫' : '—', _dashGX, _dashGY);
     if (_hasDash && _onCd) {
       gctx.globalAlpha = 0.5;
       gctx.fillStyle = '#aef';
       gctx.font = 'bold 9px Arial';
       gctx.textAlign = 'center';
       gctx.textBaseline = 'bottom';
-      gctx.fillText(Math.ceil(bt.dashCooldown / 60) + 's', 688, 724);
+      gctx.fillText(Math.ceil(bt.dashCooldown / 60) + 's', _dashGX, _dashGY + 36);
     }
     if (!_hasDash && _isTouch) {
       gctx.globalAlpha = 0.06;
@@ -10164,7 +10331,7 @@ function drawBattle(){
       gctx.font = 'bold 9px Arial';
       gctx.textAlign = 'center';
       gctx.textBaseline = 'bottom';
-      gctx.fillText('대시', 688, 724);
+      gctx.fillText('대시', _dashGX, _dashGY + 36);
     }
     gctx.restore();
   }
@@ -14244,11 +14411,18 @@ function _touchToCanvas(clientX, clientY) {
 
 document.addEventListener('touchstart', e => {
   if (gs.screen !== '__battle__' || !bt || bt.won || bt.paused) return;
+  // 대시 버튼 동적 위치 계산 (렌더링과 동일한 공식)
+  const _tCr = gameCanvas.getBoundingClientRect();
+  const _tOvf = _tCr.left < -1;
+  const _tScX = 800 / _tCr.width;
+  const _dashBtnCx = _tOvf ? Math.round((-_tCr.left + window.innerWidth - 70) * _tScX) : 688;
+  const _dashBtnCy = 688;
+
   for (let i = 0; i < e.changedTouches.length; i++) {
     const t = e.changedTouches[i];
     const { cx, cy } = _touchToCanvas(t.clientX, t.clientY);
-    // 대시 존: 캔버스 우하단 (cx>580 & cy>560) + 대시 스킬 있고 쿨타임 없을 때
-    if (cx > 580 && cy > 560 && gs.skills.dash > 0 && bt.dashCooldown <= 0) {
+    // 대시 존: 대시 버튼 근처 (60px 반경) + 대시 스킬 있고 쿨타임 없을 때
+    if (Math.hypot(cx - _dashBtnCx, cy - _dashBtnCy) < 65 && gs.skills.dash > 0 && bt.dashCooldown <= 0) {
       bt.dashCooldown = gs._dashCdReduced ? 90 : 120; bt.dashActive = 12;
       gs.player.invincible = Math.max(gs.player.invincible, 14);
       if (bt.miniChallenge && bt.miniChallenge.id === 'dash') bt._miniDashCount = (bt._miniDashCount || 0) + 1;
@@ -14263,12 +14437,8 @@ document.addEventListener('touchstart', e => {
       joystick.dx = 0; joystick.dy = 0; joystick.id = t.identifier;
     }
   }
-  // 전투 중 스크롤/줌 방지 (캔버스 위일 때만)
-  const rr = gameCanvas.getBoundingClientRect();
-  const ht = e.changedTouches[0];
-  if (ht.clientX >= rr.left && ht.clientX <= rr.right && ht.clientY >= rr.top && ht.clientY <= rr.bottom) {
-    e.preventDefault();
-  }
+  // 전투 중 스크롤/줌 방지 (항상 방지 — 전체화면 캡처)
+  e.preventDefault();
 }, { passive: false });
 
 document.addEventListener('touchmove', e => {
@@ -14401,14 +14571,37 @@ gameCanvas.addEventListener('mouseleave', _hideTooltip);
 function resizeGame(){
   const vw=window.innerWidth, vh=window.innerHeight;
   const isMobile = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
-  // 모바일: 여백 0, 전체화면 / 데스크톱: 8px 여백, 최대 860px
-  const margin = isMobile ? 0 : 8;
-  const maxS   = isMobile ? 9999 : 860;
-  const size = Math.min(vw - margin, vh - margin, maxS);
-  gameCanvas.style.width  = size + 'px';
-  gameCanvas.style.height = size + 'px';
-  // 모바일에서는 border-radius 제거 (전체화면 느낌)
-  gameCanvas.style.borderRadius = isMobile ? '0' : '12px';
+  const isPortrait = vw < vh;
+
+  if (isMobile && isPortrait) {
+    // ── 모바일 세로: 높이 전체 채움 (가로 크롭) ──
+    const size = vh;
+    gameCanvas.style.position = 'fixed';
+    gameCanvas.style.left = Math.floor((vw - size) / 2) + 'px'; // 음수 → 좌우 크롭
+    gameCanvas.style.top  = '0';
+    gameCanvas.style.width  = size + 'px';
+    gameCanvas.style.height = size + 'px';
+    gameCanvas.style.borderRadius = '0';
+  } else if (isMobile) {
+    // ── 모바일 가로: 높이 기준 ──
+    const size = Math.min(vw, vh);
+    gameCanvas.style.position = 'fixed';
+    gameCanvas.style.left = Math.floor((vw - size) / 2) + 'px';
+    gameCanvas.style.top  = Math.floor((vh - size) / 2) + 'px';
+    gameCanvas.style.width  = size + 'px';
+    gameCanvas.style.height = size + 'px';
+    gameCanvas.style.borderRadius = '0';
+  } else {
+    // ── 데스크톱: 8px 여백, 최대 860px ──
+    const size = Math.min(vw - 8, vh - 8, 860);
+    gameCanvas.style.position = '';
+    gameCanvas.style.left = '';
+    gameCanvas.style.top  = '';
+    gameCanvas.style.width  = size + 'px';
+    gameCanvas.style.height = size + 'px';
+    gameCanvas.style.borderRadius = '12px';
+  }
+
   // 지도 캔버스
   const mw = Math.min(vw - (isMobile ? 0 : 16), 960);
   const mh = Math.floor(mw * 600 / 960);
@@ -14434,6 +14627,8 @@ resizeGame();
 if (LANG !== 'ko') setLang(LANG); // apply saved language to data arrays
 initLobby();
 showScreen('startScreen');
+// 시작 시 GitHub에서 리소스 자동 로드 (네트워크 오류 무시)
+_loadResFromGitHub().catch(() => {});
 </script>
 </body>
 </html>
