@@ -2228,8 +2228,15 @@ function _deleteRes(id) {
 function _drawResImage(ctx, id, size) {
   const img = window._RES[id];
   if (!img || !img.complete || !img.naturalWidth) return false;
-  const d = size * 2.4;
-  ctx.drawImage(img, -d/2, -d/2, d, d);
+  // shadowBlur·filter 초기화 → 이미지 번짐 방지
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'transparent';
+  ctx.filter = 'none';
+  // 고품질 스무딩
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  const d = size * 3.6; // 캐릭터 크기에 맞게 조정
+  ctx.drawImage(img, -d / 2, -d / 2, d, d);
   return true;
 }
 
@@ -2698,7 +2705,7 @@ function initLobby() {
           <div style="text-align:center;z-index:2;position:relative;cursor:pointer" onclick="showLobbyCharDetail()">
             ${locked ? `<div class="lobby-char-emo">🔒</div>` :
               (window._RES[`char_${ch.id}`] && window._RES[`char_${ch.id}`].complete && window._RES[`char_${ch.id}`].naturalWidth)
-                ? `<img src="${localStorage.getItem(_RES_PREFIX+'char_'+ch.id)||''}" class="lobby-char-emo" style="width:96px;height:96px;object-fit:contain">`
+                ? `<img src="${localStorage.getItem(_RES_PREFIX+'char_'+ch.id)||''}" class="lobby-char-emo" style="width:160px;height:160px;object-fit:contain;image-rendering:auto">`
                 : `<div class="lobby-char-emo">${ch.emoji}</div>`
             }
             <div class="lobby-platform"></div>
@@ -9655,6 +9662,9 @@ function drawBattle(){
     }
   }
 
+  // 리소스 이미지 여부 (대시 잔상 + 플레이어 렌더 공통 사용)
+  const _hasResImg = !!(window._RES[`char_${gs.selectedChar.id}`]);
+
   // 대시 잔상 (dashActive 중 흰색 afterimage)
   if((bt.dashActive||0) > 0){
     const _da = bt.dashActive;
@@ -9666,8 +9676,7 @@ function drawBattle(){
       gctx.globalAlpha = Math.max(0, _aAlpha);
       gctx.translate(p.x - Math.cos(_dAngle)*_aDist, p.y - Math.sin(_dAngle)*_aDist);
       gctx.rotate(_dAngle + Math.PI/2);
-      gctx.filter = 'brightness(8) saturate(0)';
-      gctx.shadowColor = '#ffffff'; gctx.shadowBlur = 18;
+      if (!_hasResImg) { gctx.filter = 'brightness(8) saturate(0)'; gctx.shadowColor = '#ffffff'; gctx.shadowBlur = 18; }
       drawPlayerCharacter(gctx, gs.selectedChar.id, p.size);
       gctx.restore();
     }
@@ -9682,9 +9691,13 @@ function drawBattle(){
   // 플레이어
   gctx.save();gctx.translate(p.x,p.y);
   if(p.invincible>0&&Math.floor(p.invincible/4)%2===1)gctx.globalAlpha=0.4;
-  if((bt.dashActive||0)>0){gctx.shadowColor='#ffffff';gctx.shadowBlur=24;}
-  else if((bt.playerSlowTimer||0)>0){gctx.filter='hue-rotate(180deg) brightness(0.8) saturate(0.7)';}
-  else{gctx.shadowColor='rgba(140,80,255,0.6)';gctx.shadowBlur=14;}
+  if((bt.dashActive||0)>0){
+    if(!_hasResImg){gctx.shadowColor='#ffffff';gctx.shadowBlur=24;}
+  } else if((bt.playerSlowTimer||0)>0){
+    if(!_hasResImg) gctx.filter='hue-rotate(180deg) brightness(0.8) saturate(0.7)';
+  } else {
+    if(!_hasResImg){gctx.shadowColor='rgba(140,80,255,0.6)';gctx.shadowBlur=14;}
+  }
   const pAngle=Math.atan2(p.dirY,p.dirX);gctx.rotate(pAngle+Math.PI/2);
   // 살짝 위아래 흔들리며 캐릭터 그리기
   gctx.translate(0, Math.sin(_drawNow/150)*2);
