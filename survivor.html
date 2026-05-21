@@ -2227,7 +2227,8 @@ function _deleteRes(id) {
   delete window._RES[id];
 }
 
-// 캔버스에 리소스 이미지 그리기 헬퍼 (중앙 정렬, size 기준)
+// 캔버스에 리소스 이미지 그리기 헬퍼 (중앙 정렬)
+// size = 그릴 픽셀 크기 (직접 지정, 800×800 캔버스 기준)
 function _drawResImage(ctx, id, size) {
   const img = window._RES[id];
   if (!img || !img.complete || !img.naturalWidth) return false;
@@ -2238,9 +2239,45 @@ function _drawResImage(ctx, id, size) {
   // 고품질 스무딩
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  const d = size * 5.5; // 캐릭터 크기에 맞게 조정
-  ctx.drawImage(img, -d / 2, -d / 2, d, d);
+  // size를 직접 px 크기로 사용 (호출부에서 적절한 크기 전달)
+  ctx.drawImage(img, -size / 2, -size / 2, size, size);
   return true;
+}
+
+// 리소스 JSON 내보내기 (모든 기기에서 사용 가능)
+function _exportResJSON() {
+  const data = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(_RES_PREFIX)) {
+      const id = k.slice(_RES_PREFIX.length);
+      data[id] = localStorage.getItem(k);
+    }
+  }
+  if (Object.keys(data).length === 0) { showToast('⚠️ 내보낼 리소스가 없습니다', 1500); return; }
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'wls-resources.json'; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast('✅ 내보내기 완료! JSON 파일을 다른 기기로 전송 후 가져오기 하세요', 3000);
+}
+
+// 리소스 JSON 가져오기
+function _importResJSON(file, onDone) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      let count = 0;
+      for (const [id, b64] of Object.entries(data)) {
+        if (typeof b64 === 'string' && b64.startsWith('data:image/')) { _saveRes(id, b64); count++; }
+      }
+      showToast(`✅ ${count}개 리소스 가져오기 완료!`, 2000);
+      if (onDone) onDone();
+    } catch(err) { showToast('⚠️ 파일 형식이 올바르지 않습니다', 1800); }
+  };
+  reader.readAsText(file);
 }
 
 // 리소스 정의 목록
@@ -2310,9 +2347,21 @@ function showResourceOverlay() {
         슬롯에 이미지를 <strong style="color:#a0c8ff">드래그해서 놓거나</strong> 클릭해서 업로드하세요.<br>
         <span style="color:#4a9eff">투명 배경 PNG 권장 · 최대 3MB</span>
       </div>
-      <div style="background:rgba(255,200,60,0.08);border:1px solid rgba(255,200,60,0.25);border-radius:10px;padding:9px 12px;margin-bottom:14px;font-size:10px;color:#c9a060;line-height:1.5">
-        ⚠️ <strong>이미지는 이 기기(브라우저)에만 저장됩니다.</strong><br>
-        PC에서 올린 이미지는 모바일에서 다시 업로드해야 합니다.
+      <div style="background:rgba(60,140,255,0.08);border:1px solid rgba(60,140,255,0.3);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:700;color:#80c8ff;margin-bottom:7px">📲 다른 기기에서 사용하려면</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="_resExport" style="flex:1;min-width:120px;padding:8px 10px;border-radius:8px;border:1px solid rgba(80,180,255,0.45);background:rgba(10,30,70,0.9);color:#80c8ff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Jua',sans-serif">
+            📤 내보내기 (JSON)
+          </button>
+          <label id="_resImportLabel" style="flex:1;min-width:120px;padding:8px 10px;border-radius:8px;border:1px solid rgba(80,220,120,0.45);background:rgba(10,40,20,0.9);color:#80e8a0;font-size:12px;font-weight:700;cursor:pointer;font-family:'Jua',sans-serif;display:flex;align-items:center;justify-content:center">
+            📥 가져오기 (JSON)
+            <input type="file" accept=".json" id="_resImportInput" style="display:none">
+          </label>
+        </div>
+        <div style="font-size:10px;color:#4a7a9a;margin-top:6px">내보내기 → JSON 파일 전송 → 다른 기기에서 가져오기</div>
+      </div>
+      <div style="background:rgba(255,200,60,0.06);border:1px solid rgba(255,200,60,0.2);border-radius:8px;padding:7px 10px;margin-bottom:14px;font-size:10px;color:#886a30;line-height:1.4">
+        ⚠️ 이미지는 이 기기 브라우저에 저장됩니다 · 위의 JSON 내보내기로 다른 기기에 적용 가능
       </div>
       ${allGroups.map(g => `
         <div style="font-size:12px;font-weight:800;color:#c9a84c;letter-spacing:1px;margin:18px 0 10px">${g.title}</div>
@@ -2398,6 +2447,15 @@ function showResourceOverlay() {
     });
 
     ov.querySelector('#_resClose').addEventListener('click', () => { history.back(); ov._doClose(); });
+
+    // 내보내기 버튼
+    ov.querySelector('#_resExport').addEventListener('click', () => _exportResJSON());
+
+    // 가져오기 파일 선택
+    ov.querySelector('#_resImportInput').addEventListener('change', function() {
+      _importResJSON(this.files[0], renderRes);
+      this.value = '';
+    });
   }
 
   renderRes();
@@ -2712,7 +2770,7 @@ function initLobby() {
           <div style="text-align:center;z-index:2;position:relative;cursor:pointer" onclick="showLobbyCharDetail()">
             ${locked ? `<div class="lobby-char-emo">🔒</div>` :
               (window._RES[`char_${ch.id}`] && window._RES[`char_${ch.id}`].complete && window._RES[`char_${ch.id}`].naturalWidth)
-                ? `<img src="${localStorage.getItem(_RES_PREFIX+'char_'+ch.id)||''}" class="lobby-char-emo" style="width:min(180px,42vw);height:min(180px,42vw);object-fit:contain;image-rendering:auto">`
+                ? `<img src="${localStorage.getItem(_RES_PREFIX+'char_'+ch.id)||''}" class="lobby-char-emo" style="width:min(240px,65vw);height:min(240px,65vw);object-fit:contain;image-rendering:auto">`
                 : `<div class="lobby-char-emo">${ch.emoji}</div>`
             }
             <div class="lobby-platform"></div>
@@ -10018,42 +10076,43 @@ function drawBattle(){
   }
 
   // ── 모바일 터치 가이드 (쉬는 상태 — 손가락 안 올려뒀을 때) ──
-  const _isTouch = navigator.maxTouchPoints > 0;
+  const _isTouch = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
   if (_isTouch && !joystick.active && !bt.paused && !bt.won) {
     gctx.save();
-    // 박동 효과 (숨 쉬는 느낌) — 기본 알파를 0.55로 높여서 잘 보이게
-    const _pulse = 0.55 + 0.12 * Math.sin((bt.battleTime || 0) * 0.07);
-    // 외곽 링
-    gctx.globalAlpha = _pulse * 0.55;
-    gctx.strokeStyle = '#a0d8ff';
-    gctx.lineWidth = 2;
-    gctx.shadowColor = '#4af'; gctx.shadowBlur = 8;
-    gctx.beginPath(); gctx.arc(115, 668, 54, 0, Math.PI * 2); gctx.stroke();
-    // 배경 반투명 원
-    gctx.globalAlpha = _pulse * 0.18;
-    gctx.fillStyle = '#4af';
+    // 박동 효과 — 충분히 밝게 (0.75~0.90)
+    const _pulse = 0.80 + 0.10 * Math.sin((bt.battleTime || 0) * 0.07);
+    // 배경 반투명 원 (먼저 그려서 겹침 방지)
+    gctx.globalAlpha = _pulse * 0.30;
+    gctx.fillStyle = '#2060cc';
     gctx.beginPath(); gctx.arc(115, 668, 54, 0, Math.PI * 2); gctx.fill();
+    // 외곽 링
+    gctx.globalAlpha = _pulse * 0.90;
+    gctx.strokeStyle = '#60c0ff';
+    gctx.lineWidth = 3;
+    gctx.shadowColor = '#4af'; gctx.shadowBlur = 12;
+    gctx.beginPath(); gctx.arc(115, 668, 54, 0, Math.PI * 2); gctx.stroke();
     // 안쪽 노브
     gctx.shadowBlur = 0;
-    gctx.globalAlpha = _pulse * 0.6;
-    gctx.fillStyle = 'rgba(255,255,255,0.5)';
-    gctx.beginPath(); gctx.arc(115, 668, 20, 0, Math.PI * 2); gctx.fill();
-    // 십자 방향 화살표
     gctx.globalAlpha = _pulse * 0.85;
+    gctx.fillStyle = 'rgba(180,220,255,0.65)';
+    gctx.beginPath(); gctx.arc(115, 668, 22, 0, Math.PI * 2); gctx.fill();
+    // 십자 방향 화살표
+    gctx.globalAlpha = _pulse;
     gctx.strokeStyle = '#fff';
-    gctx.lineWidth = 2.5;
-    gctx.shadowColor = '#000'; gctx.shadowBlur = 4;
+    gctx.lineWidth = 3;
+    gctx.shadowColor = '#004488'; gctx.shadowBlur = 6;
+    gctx.lineCap = 'round';
     [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dx,dy]) => {
       gctx.beginPath();
-      gctx.moveTo(115 + dx*27, 668 + dy*27);
-      gctx.lineTo(115 + dx*40, 668 + dy*40);
+      gctx.moveTo(115 + dx*26, 668 + dy*26);
+      gctx.lineTo(115 + dx*42, 668 + dy*42);
       gctx.stroke();
     });
     // "이동" 텍스트
     gctx.shadowBlur = 0;
-    gctx.globalAlpha = _pulse * 0.7;
+    gctx.globalAlpha = _pulse * 0.95;
     gctx.fillStyle = '#fff';
-    gctx.font = 'bold 11px Arial';
+    gctx.font = 'bold 13px Arial';
     gctx.textAlign = 'center';
     gctx.textBaseline = 'middle';
     gctx.fillText('이동', 115, 668);
@@ -10107,12 +10166,13 @@ function drawBattle(){
     const jx=(joystick.startX-r2.left)*scX, jy=(joystick.startY-r2.top)*scY;
     const knobX=jx+joystick.dx*scX, knobY=jy+joystick.dy*scY;
     gctx.save();
-    // 외곽 링
-    gctx.globalAlpha=0.18; gctx.strokeStyle='#ffffff'; gctx.lineWidth=2;
-    gctx.beginPath(); gctx.arc(jx,jy,56,0,Math.PI*2); gctx.stroke();
     // 배경 원
-    gctx.globalAlpha=0.12; gctx.fillStyle='#ffffff';
-    gctx.beginPath(); gctx.arc(jx,jy,54,0,Math.PI*2); gctx.fill();
+    gctx.globalAlpha=0.30; gctx.fillStyle='#2060cc';
+    gctx.beginPath(); gctx.arc(jx,jy,56,0,Math.PI*2); gctx.fill();
+    // 외곽 링
+    gctx.globalAlpha=0.80; gctx.strokeStyle='#60c0ff'; gctx.lineWidth=3;
+    gctx.shadowColor='#4af'; gctx.shadowBlur=12;
+    gctx.beginPath(); gctx.arc(jx,jy,56,0,Math.PI*2); gctx.stroke();
     // 방향 지시선
     const angle=Math.atan2(joystick.dy,joystick.dx), dist=Math.hypot(joystick.dx,joystick.dy);
     if(dist>4){
@@ -11022,7 +11082,8 @@ function updateHUD(){
 // s = player.size (~20)
 function drawPlayerCharacter(ctx, charId, s) {
   // 리소스 이미지가 등록돼 있으면 우선 사용
-  if (_drawResImage(ctx, `char_${charId}`, s)) return;
+  // 캐릭터 이미지: s(~20) 기준 × 8 → 160px (800px 캔버스에서 20% 크기)
+  if (_drawResImage(ctx, `char_${charId}`, Math.max(s * 8, 80))) return;
   switch(charId) {
 
     default:
@@ -11346,9 +11407,13 @@ function drawEnemyAnimal(ctx,e){
                   e.isEliteBoss ? `elite_${e.type}` :
                   `enemy_${e.type}`;
   if (window._RES[_resKey]) {
+    // 엔티티 타입별 적절한 이미지 크기 (800px 캔버스 기준)
+    const _imgSize = e.isBoss ? Math.min(s * 4, 240)          // 보스: 224~248px
+                   : e.isEliteBoss ? Math.min(s * 5, 190)     // 엘리트: 150~190px
+                   : Math.max(s * 6, 65);                     // 일반: 65~132px
     ctx.save();
     ctx.translate(x, y);
-    _drawResImage(ctx, _resKey, s);
+    _drawResImage(ctx, _resKey, _imgSize);
     ctx.restore();
     ctx.restore(); // flip용 save
     ctx.restore(); // 외부 save
@@ -14325,12 +14390,17 @@ gameCanvas.addEventListener('mouseleave', _hideTooltip);
 // 반응형 — 게임 캔버스는 화면 최대한 활용
 function resizeGame(){
   const vw=window.innerWidth, vh=window.innerHeight;
-  // 게임 캔버스: 세로 기준 최대, 최소 여백 8px
-  const size = Math.min(vw - 8, vh - 8, 860);
+  const isMobile = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+  // 모바일: 여백 0, 전체화면 / 데스크톱: 8px 여백, 최대 860px
+  const margin = isMobile ? 0 : 8;
+  const maxS   = isMobile ? 9999 : 860;
+  const size = Math.min(vw - margin, vh - margin, maxS);
   gameCanvas.style.width  = size + 'px';
   gameCanvas.style.height = size + 'px';
+  // 모바일에서는 border-radius 제거 (전체화면 느낌)
+  gameCanvas.style.borderRadius = isMobile ? '0' : '12px';
   // 지도 캔버스
-  const mw = Math.min(vw - 16, 960);
+  const mw = Math.min(vw - (isMobile ? 0 : 16), 960);
   const mh = Math.floor(mw * 600 / 960);
   mapCanvas.width  = 960; mapCanvas.height = 600;
   mapCanvas.style.width  = mw + 'px';
