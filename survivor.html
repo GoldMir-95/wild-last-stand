@@ -2311,17 +2311,29 @@ function _compressImageB64(b64Src, cb) {
 }
 
 // GitHub에서 리소스 로드 (게임 시작 시 호출)
-async function _loadResFromGitHub() {
+async function _loadResFromGitHub(showFeedback) {
   try {
     const r = await fetch(_GH_RAW_URL + '?_=' + Date.now(), { cache: 'no-store' });
-    if (!r.ok) return;
-    const data = await r.json();
+    if (!r.ok) {
+      if (showFeedback) showToast(`⚠️ GitHub에 리소스 파일 없음 (${r.status})\nPC에서 먼저 업로드하세요`, 3000);
+      return 0;
+    }
+    let data;
+    try { data = await r.json(); }
+    catch(e) {
+      if (showFeedback) showToast('⚠️ 리소스 파일 형식 오류', 2000);
+      return 0;
+    }
     let n = 0;
     for (const [id, b64] of Object.entries(data)) {
       if (typeof b64 === 'string' && b64.startsWith('data:image/')) { _saveRes(id, b64); n++; }
     }
-    if (n) console.log(`[Res] GitHub에서 ${n}개 로드`);
-  } catch(e) { /* 오프라인 or 파일 없음 → 무시 */ }
+    console.log(`[Res] GitHub에서 ${n}개 로드`);
+    return n;
+  } catch(e) {
+    if (showFeedback) showToast('⚠️ 네트워크 오류: ' + e.message, 2000);
+    return 0;
+  }
 }
 
 // 모든 리소스 GitHub에 업로드 (압축 후)
@@ -2363,8 +2375,14 @@ async function _syncResToGitHub(token, onDone) {
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/vnd.github.v3+json' },
       body: JSON.stringify(body)
     });
-    if (r.ok) { showToast('☁️ GitHub 동기화 완료! 다른 기기에서 새로고침하면 적용됩니다', 3000); if (onDone) onDone(); }
-    else { const err = await r.json().catch(()=>{}); showToast(`⚠️ GitHub 오류: ${err?.message || r.status}`, 2500); }
+    if (r.ok) {
+      const cnt = Object.keys(data).length;
+      showToast(`☁️ GitHub 업로드 완료! (${cnt}개)\n모바일에서 ⬇️ 가져오기 버튼 누르세요`, 3500);
+      if (onDone) onDone();
+    } else {
+      const err = await r.json().catch(()=>{});
+      showToast(`⚠️ GitHub 오류: ${err?.message || r.status}\n토큰 권한(public_repo)을 확인하세요`, 3000);
+    }
   } catch(e) { showToast('⚠️ 네트워크 오류: ' + e.message, 2000); }
 }
 
@@ -2603,9 +2621,12 @@ function showResourceOverlay() {
     if (ghSyncDown) {
       ghSyncDown.addEventListener('click', () => {
         showToast('⬇️ GitHub에서 가져오는 중...', 1500);
-        _loadResFromGitHub().then(() => {
-          showToast('✅ GitHub 리소스 적용 완료!', 2000);
-          renderRes();
+        _loadResFromGitHub(true).then(n => {
+          if (n > 0) {
+            showToast(`✅ ${n}개 리소스 적용 완료!`, 2000);
+            renderRes();
+          }
+          // n===0이면 _loadResFromGitHub 내부에서 이미 에러 토스트 표시됨
         });
       });
     }
