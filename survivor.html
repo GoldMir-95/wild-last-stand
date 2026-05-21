@@ -1760,8 +1760,8 @@ function loadRunSave(data) {
   // 엘리트 특수능력 복구
   gs.elitePowers = (data.elitePowerIds || []).map(id => ELITE_POWERS.find(p => p.id === id)).filter(Boolean);
 
-  // 맵 복구
-  gs.map = data.map;
+  // 맵 복구 (레이어 수가 현재 버전과 다르면 재생성)
+  gs.map = (data.map && data.map.length === FLOORS_PER_ACT) ? data.map : generateMap(gs.act);
 
   // 유물 플래그 복원 (onPickup 재실행: _relicCoinPurse 등 flag 복구 목적)
   gs.relics.forEach(r => { if (r && r.onPickup) r.onPickup(gs.player, gs.skills, gs); });
@@ -5685,7 +5685,7 @@ const BATTLE_EVENTS = [
         else if(side===1){ex=cx+Math.random()*800;ey=cy+840;}
         else if(side===2){ex=cx-40;ey=cy+Math.random()*800;}
         else{ex=cx+840;ey=cy+Math.random()*800;}
-        bt.enemies.push({x:ex,y:ey,size:16,speed:1.5,hp:Math.ceil(6*hpM),maxHp:Math.ceil(6*hpM),color:'#ff6080',type:'basic',hitFlash:0});
+        bt.enemies.push({x:ex,y:ey,size:16,speed:1.5,hp:Math.ceil(6*hpM),maxHp:Math.ceil(6*hpM),color:'#ff6080',type:'normal',hitFlash:0});
       }
       playSound(200,0.3,'sawtooth',0.08); playSound(160,0.25,'sawtooth',0.07);
     }
@@ -5716,7 +5716,7 @@ const BATTLE_EVENTS = [
       const diff=bt.diffMult,act=gs.act,hpM=(1.5+(act-1)*0.8)*diff;
       const cx=(bt.cam||{x:0}).x,cy=(bt.cam||{x:0,y:0}).y;
       bt.enemies.push({x:cx+400,y:cy-50,size:28,speed:1.1,hp:Math.ceil(24*hpM),maxHp:Math.ceil(24*hpM),
-        color:'#c050e8',type:'basic',hitFlash:0,_eventElite:true,_eventGoldBonus:40});
+        color:'#c050e8',type:'tank',hitFlash:0,_eventElite:true,_eventGoldBonus:40});
       playSound(280,0.3,'sawtooth',0.09); playSound(350,0.22,'sawtooth',0.07);
     }
   },
@@ -5724,12 +5724,13 @@ const BATTLE_EVENTS = [
 
 function tryTriggerBattleEvent() {
   if (!bt || bt.won || bt.paused) return;
+  if (gs.screen !== '__battle__') return; // 전투 화면 이탈 후 실행 방지
   const pool = BATTLE_EVENTS.filter(ev => !bt._usedEventIds.has(ev.id));
   if (pool.length === 0) return;
   const ev = pool[Math.floor(Math.random() * pool.length)];
   bt._usedEventIds.add(ev.id);
   showBattleEventBanner(ev);
-  setTimeout(() => { if (bt && !bt.won) ev.apply(); }, 800); // 배너 표시 후 0.8초 뒤 효과 발동
+  setTimeout(() => { if (bt && !bt.won && gs.screen === '__battle__') ev.apply(); }, 800);
 }
 
 function showBattleEventBanner(ev) {
@@ -5758,6 +5759,9 @@ function showBattleEventBanner(ev) {
   requestAnimationFrame(() => { banner.style.opacity = '1'; banner.style.transform = 'translateX(-50%) scale(1)'; });
   setTimeout(() => { banner.style.opacity = '0'; banner.style.transform = 'translateX(-50%) scale(1.05)'; }, 2400);
   setTimeout(() => banner.remove(), 2800);
+  // 전투 화면 이탈 시 즉시 제거 (200ms 간격 폴링)
+  const _bannerGuard = setInterval(() => { if (gs.screen !== '__battle__') { banner.remove(); clearInterval(_bannerGuard); } }, 200);
+  setTimeout(() => clearInterval(_bannerGuard), 3000);
 }
 
 function spawnEnemiesForWave() {
@@ -8308,6 +8312,7 @@ function collectAllItems(onDone) {
     setTimeout(() => {
       if (it.type === 'gold') playSound(baseFreqs[idx % 3], 0.12, 'sine', 0.06);
       else if (it.type === 'hp') playSound(660, 0.15, 'sine', 0.05);
+      else if (it.type === 'hp_large') { playSound(528, 0.2, 'sine', 0.07); playSound(660, 0.18, 'sine', 0.06); }
     }, idx * 40);
   });
 
@@ -8337,8 +8342,12 @@ function collectAllItems(onDone) {
       // 수거 적용
       let hpGain = 0, goldGain = 0;
       (bt.items || []).forEach(it => {
-        if (it.type === 'hp')   hpGain   += 16;
-        if (it.type === 'gold') { const _g=Math.round(10*(1+(gs.act-1)*0.3)*(1+(bt.wave-1)*0.1)); goldGain+=_g; gs.gold+=_g; gs._totalGoldEarned=(gs._totalGoldEarned||0)+_g; trackMission('gold',_g); }
+        if (it.type === 'hp')       hpGain += 16;
+        if (it.type === 'hp_large') hpGain += Math.floor(p.maxHp * 0.40); // 💊 구급 상자 이벤트 아이템
+        if (it.type === 'gold') {
+          const _g = it._eventGold || Math.round(10*(1+(gs.act-1)*0.3)*(1+(bt.wave-1)*0.1));
+          goldGain+=_g; gs.gold+=_g; gs._totalGoldEarned=(gs._totalGoldEarned||0)+_g; trackMission('gold',_g);
+        }
       });
       if (hpGain > 0) {
         p.hp = Math.min(p.maxHp, p.hp + hpGain);
@@ -8928,6 +8937,31 @@ function drawBattle(){
         for(let k=0;k<4;k++){
           const a=t*0.3+it._phase+k*Math.PI/2;
           gctx.beginPath(); gctx.arc(sx,sy-hr*0.3, hr*1.8+k*3, a, a+0.5); gctx.stroke();
+        }
+      }
+
+    } else if(it.type === 'hp_large'){
+      // ─── 구급 상자 (대형 하트 + 십자 표시) ───
+      const pulse2 = 1 + 0.18*Math.abs(Math.sin(t*0.08+it._phase));
+      const hr2 = 15 * pulse2;
+      gctx.shadowColor = '#ff6080'; gctx.shadowBlur = col ? 36 : 22;
+      gctx.fillStyle='#c01040';
+      drawHeart(sx, sy-hr2*0.65, hr2*0.95); gctx.fill();
+      const hg2=gctx.createRadialGradient(sx-hr2*0.25,sy-hr2*0.5,0, sx,sy,hr2*1.4);
+      hg2.addColorStop(0,'#ffb0c0'); hg2.addColorStop(0.4,'#ff3060'); hg2.addColorStop(1,'#c01040');
+      gctx.fillStyle=hg2; drawHeart(sx, sy-hr2*0.65, hr2*0.95); gctx.fill();
+      // 십자 문양
+      gctx.fillStyle='rgba(255,255,255,0.85)';
+      gctx.fillRect(sx-hr2*0.15, sy-hr2*1.1, hr2*0.3, hr2*0.7);
+      gctx.fillRect(sx-hr2*0.4, sy-hr2*0.9, hr2*0.8, hr2*0.3);
+      // 상단 하이라이트
+      gctx.fillStyle='rgba(255,255,255,0.50)';
+      gctx.beginPath(); gctx.ellipse(sx-hr2*0.32, sy-hr2*0.95, hr2*0.3, hr2*0.22, -0.4, 0, Math.PI*2); gctx.fill();
+      if(col){
+        gctx.strokeStyle='rgba(255,140,160,0.65)'; gctx.lineWidth=2;
+        for(let k=0;k<4;k++){
+          const a=t*0.25+it._phase+k*Math.PI/2;
+          gctx.beginPath(); gctx.arc(sx,sy-hr2*0.3, hr2*2.0+k*4, a, a+0.6); gctx.stroke();
         }
       }
 
@@ -11687,7 +11721,9 @@ function showCardSelection(onDone, opts) {
         _levelUpEffect(card, el);
         showToast(`✨ ${card.name} 획득!`);
       }
-      // pick(n)을 요청한 카드: 추가 선택 체인 후 onDone (480ms 딜레이 — 연출 후 전환)
+      // pick(n)을 요청한 카드: 추가 선택 체인 후 onDone
+      // 시너지 배너는 2초, 일반 연출은 0.48초 — 배너가 끝난 후 전환
+      const _transDelay = newSyns.length > 0 ? 2050 : 480;
       setTimeout(() => {
         if (_extraPicks > 0) {
           let _chain = onDone || (() => showMapScreen());
@@ -11699,7 +11735,7 @@ function showCardSelection(onDone, opts) {
         } else {
           if(onDone) onDone(); else showMapScreen();
         }
-      }, 480);
+      }, _transDelay);
     };
     row.appendChild(el);
   }); } // _renderCardRow 끝
