@@ -2154,6 +2154,9 @@ function showScreen(id) {
 // ══════════════════════════════════════════════════════
 window._backStack = [];
 
+// 페이지 로드 시 기반 상태 설정 (뒤로가기 안전망)
+history.replaceState({ _survBase: true }, '');
+
 // 오버레이/화면이 열릴 때 호출 — history 항목 추가 + 클로저 등록
 function _pushBack(closeFn) {
   history.pushState({ _gb: Date.now() }, '');
@@ -2161,18 +2164,21 @@ function _pushBack(closeFn) {
 }
 
 // popstate: Android 뒤로가기 or 브라우저 Back 버튼
-window.addEventListener('popstate', () => {
+window.addEventListener('popstate', (e) => {
   const stack = window._backStack;
   if (stack && stack.length > 0) {
     // 등록된 핸들러 실행 (오버레이 닫기 / 화면 이동)
     const fn = stack.pop();
-    try { fn(); } catch(e) {}
+    try { fn(); } catch(err) {}
   } else if (gs && gs.screen === '__battle__' && bt && !bt.won) {
     // 배틀 중 뒤로가기 → 일시정지 토글
     history.pushState({ _gb: Date.now() }, ''); // 앱 종료 방지용 재등록
     toggleBattlePause();
+  } else if (e.state && e.state._survBase) {
+    // 기반 상태로 돌아왔을 때 — 앱 종료 방지를 위해 재등록
+    history.pushState({ _gb: Date.now() }, '');
   }
-  // 그 외 (타이틀/맵에서 스택 비었을 때) → 브라우저 기본 동작 허용
+  // 그 외: 브라우저 기본 동작 허용
 });
 
 // ── 성장 패널 업데이트 ──
@@ -9438,9 +9444,11 @@ function drawBattle(){
       gctx.globalAlpha = Math.max(0, _aAlpha);
       gctx.translate(p.x - Math.cos(_dAngle)*_aDist, p.y - Math.sin(_dAngle)*_aDist);
       gctx.rotate(_dAngle + Math.PI/2);
+      gctx.font = "40px 'Apple Color Emoji','Noto Color Emoji','Segoe UI Emoji',serif";
+      gctx.textAlign = 'center'; gctx.textBaseline = 'middle';
       gctx.filter = 'brightness(10) saturate(0)';
       gctx.shadowColor = '#ffffff'; gctx.shadowBlur = 20;
-      drawPlayerCharacter(gctx, gs.selectedChar.id, p.size);
+      gctx.fillText(gs.selectedChar.emoji, 0, 0);
       gctx.restore();
     }
     // 흰 링 효과
@@ -9451,17 +9459,16 @@ function drawBattle(){
     gctx.beginPath(); gctx.arc(p.x, p.y, p.size + 6 + (12-_da)*1.5, 0, Math.PI*2); gctx.stroke();
     gctx.restore();
   }
-  // 플레이어 (커스텀 드로잉 — 플랫폼 일관성)
-  gctx.save();
-  const _bobY = Math.sin(_drawNow / 150) * 1.5; // 살짝 둥둥 효과
-  gctx.translate(p.x, p.y + _bobY);
-  if (p.invincible > 0 && Math.floor(p.invincible / 4) % 2 === 1) gctx.globalAlpha = 0.4;
-  if ((bt.dashActive || 0) > 0) { gctx.shadowColor = '#ffffff'; gctx.shadowBlur = 24; }
-  else if ((bt.playerSlowTimer || 0) > 0) { gctx.filter = 'hue-rotate(180deg) brightness(0.8) saturate(0.7)'; }
-  else { gctx.shadowColor = 'rgba(74,158,255,0.5)'; gctx.shadowBlur = 12; }
-  const pAngle = Math.atan2(p.dirY, p.dirX);
-  gctx.rotate(pAngle + Math.PI / 2);
-  drawPlayerCharacter(gctx, gs.selectedChar.id, p.size);
+  // 플레이어
+  gctx.save();gctx.translate(p.x,p.y);
+  if(p.invincible>0&&Math.floor(p.invincible/4)%2===1)gctx.globalAlpha=0.4;
+  if((bt.dashActive||0)>0){gctx.shadowColor='#ffffff';gctx.shadowBlur=24;}
+  else if((bt.playerSlowTimer||0)>0){gctx.filter='hue-rotate(180deg) brightness(0.8) saturate(0.7)';}
+  else{gctx.shadowColor='rgba(74,158,255,0.5)';gctx.shadowBlur=12;}
+  const pAngle=Math.atan2(p.dirY,p.dirX);gctx.rotate(pAngle+Math.PI/2);
+  gctx.font="40px 'Apple Color Emoji','Noto Color Emoji','Segoe UI Emoji',serif";
+  gctx.textAlign='center';gctx.textBaseline='middle';
+  gctx.fillText(gs.selectedChar.emoji,0,Math.sin(_drawNow/150)*2);
   gctx.restore();
 
   // ── 캐릭터 직하 HP바 (탕탕특공대 스타일) ──
