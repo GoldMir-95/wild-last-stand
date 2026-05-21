@@ -624,6 +624,46 @@ const ACT_THEMES = [
   },
 ];
 
+// ACT별 보스 변종 — 각 ACT마다 런마다 랜덤 선택
+// hpMult/spdMult: 기본 공식에 곱하는 배율
+// chargeBonus: 돌진 빈도 배율 (>1 = 더 자주)
+// summonBonus: 소환 빈도 배율 (>1 = 더 자주)
+const BOSS_VARIANTS = {
+  1: [
+    { id:'lord',    name:'초원의 군주', emoji:'🦁', color:'#c9a84c',
+      hpMult:1.0,  spdMult:1.0,  chargeBonus:1.0, summonBonus:1.0,
+      intro:'초원의 군주가 길을 막아섰다. 이 자를 물리쳐야 탑의 첫 번째 관문이 열린다.' },
+    { id:'boar',    name:'광폭 멧돼지', emoji:'🐗', color:'#d05030',
+      hpMult:0.72, spdMult:1.45, chargeBonus:1.8, summonBonus:0.6,
+      intro:'분노한 멧돼지가 전속력으로 돌진한다. 멈추는 법을 모른다 — 비켜라!' },
+    { id:'spirit',  name:'숲의 정령',   emoji:'🌿', color:'#50c870',
+      hpMult:1.45, spdMult:0.72, chargeBonus:0.6, summonBonus:2.0,
+      intro:'숲의 정령이 숲의 자식들을 불러들인다. 군중 속에 파묻히면 끝이다.' },
+  ],
+  2: [
+    { id:'king',    name:'빙하의 왕',   emoji:'🐉', color:'#7dd8ff',
+      hpMult:1.0,  spdMult:1.0,  chargeBonus:1.0, summonBonus:1.0,
+      intro:'빙하의 왕이 강림했다! 그의 냉기는 세상을 얼려버릴 만큼 강력하다.' },
+    { id:'witch',   name:'설원의 마녀', emoji:'🧊', color:'#b0f0ff',
+      hpMult:0.68, spdMult:1.05, chargeBonus:0.55, summonBonus:0.55,
+      intro:'탄막이다. 설원의 마녀는 끊임없는 얼음 폭풍으로 공간을 지운다.' },
+    { id:'giant',   name:'빙하 거인',   emoji:'🏔️', color:'#60a8e0',
+      hpMult:1.75, spdMult:0.58, chargeBonus:0.45, summonBonus:1.6,
+      intro:'땅이 갈라진다. 빙하 거인은 느리지만 무너뜨릴 수 없다.' },
+  ],
+  3: [
+    { id:'overlord',name:'심연의 군주', emoji:'😈', color:'#f87040',
+      hpMult:1.0,  spdMult:1.0,  chargeBonus:1.0, summonBonus:1.0,
+      intro:'심연의 군주가 깨어났다! 탑의 모든 힘이 이 존재에 깃들어 있다.' },
+    { id:'firelord',name:'화염 대마왕', emoji:'🔥', color:'#ff4400',
+      hpMult:0.78, spdMult:1.55, chargeBonus:2.0, summonBonus:0.7,
+      intro:'화염이 세상을 뒤덮는다. 화염 대마왕은 순식간에 모든 것을 태운다!' },
+    { id:'voidgod', name:'공허의 신',   emoji:'💀', color:'#aa44ff',
+      hpMult:1.38, spdMult:0.85, chargeBonus:0.9, summonBonus:1.4,
+      intro:'공허가 열렸다. 공허의 신 — 처음부터 네 가지 페이즈가 기다린다.' },
+  ],
+};
+
 const DEATH_MSGS = [
   '아직은 이르다. 다시 한 번.',
   '초원의 바람이 너를 기억한다.',
@@ -5374,6 +5414,11 @@ function startBattle(isElite, isBoss) {
   clearBgCache(); // SVG 배경 캐시 초기화 (ACT 전환 대비)
   gs.battleConfig.isElite = isElite;
   gs.battleConfig.isBoss = isBoss;
+  // 보스 배틀 시 변종 랜덤 선택
+  if (isBoss) {
+    const _bvPool = BOSS_VARIANTS[gs.act] || BOSS_VARIANTS[1];
+    gs.bossVariant = _bvPool[Math.floor(Math.random() * _bvPool.length)];
+  }
   const diffMult = 1 + (gs.act-1)*0.4;
   // 웨이브 수 & 웨이브당 시간 (초)
   // 일반: 4웨이브 × 18초 = 총 72초
@@ -5455,6 +5500,11 @@ function startBattle(isElite, isBoss) {
   // ── 보스 전용 드라마틱 인트로 ──
   if (isBoss) {
     const theme = ACT_THEMES[gs.act - 1] || {};
+    const bv = gs.bossVariant || (BOSS_VARIANTS[gs.act]||BOSS_VARIANTS[1])[0];
+    const bossColor = bv.color || theme.color || '#c9a84c';
+    const bossEmoji = bv.emoji || theme.bossEmoji || '👑';
+    const bossName  = bv.name  || theme.bossName  || '???';
+    const bossIntro = bv.intro || theme.bossIntro  || '';
     const ov = document.createElement('div');
     ov.id = '_bossIntroOv';
     ov.style.cssText = `position:fixed;inset:0;z-index:400;display:flex;flex-direction:column;align-items:center;
@@ -5462,20 +5512,20 @@ function startBattle(isElite, isBoss) {
       overflow:hidden;`;
     // 배경 파티클 라인 (빠른 줄무늬)
     const linesHTML = Array.from({length:8},(_,i)=>`
-      <div style="position:absolute;left:0;right:0;top:${10+i*12}%;height:1px;background:linear-gradient(90deg,transparent,${theme.color||'#c9a84c'}44,transparent);
+      <div style="position:absolute;left:0;right:0;top:${10+i*12}%;height:1px;background:linear-gradient(90deg,transparent,${bossColor}44,transparent);
         transform:scaleX(0);transition:transform ${0.4+i*0.06}s ease ${0.1+i*0.04}s;" class="_bossLine"></div>`).join('');
     ov.innerHTML = `${linesHTML}
       <div id="_bossIntroInner" style="text-align:center;opacity:0;transform:scale(0.7) translateY(20px);transition:all 0.6s cubic-bezier(0.16,1,0.3,1) 0.15s;position:relative;z-index:1;">
         <div style="font-family:'Cinzel',serif;font-size:10px;color:#e05050;letter-spacing:6px;margin-bottom:16px;
           text-shadow:0 0 10px #e05050;">⚠ BOSS ENCOUNTER ⚠</div>
         <div style="font-size:88px;margin-bottom:16px;
-          filter:drop-shadow(0 0 40px ${theme.color||'#c9a84c'}) drop-shadow(0 0 80px ${theme.color||'#c9a84c'}88);
-          animation:bossPulse 0.8s ease-in-out infinite alternate;">${theme.bossEmoji||'👑'}</div>
-        <div style="font-family:'Cinzel',serif;font-size:32px;font-weight:900;color:${theme.color||'#c9a84c'};
-          text-shadow:0 0 40px ${theme.color||'#c9a84c'},0 0 80px ${theme.color||'#c9a84c'}66;
-          letter-spacing:2px;margin-bottom:10px;">${theme.bossName||'???'}</div>
+          filter:drop-shadow(0 0 40px ${bossColor}) drop-shadow(0 0 80px ${bossColor}88);
+          animation:bossPulse 0.8s ease-in-out infinite alternate;">${bossEmoji}</div>
+        <div style="font-family:'Cinzel',serif;font-size:32px;font-weight:900;color:${bossColor};
+          text-shadow:0 0 40px ${bossColor},0 0 80px ${bossColor}66;
+          letter-spacing:2px;margin-bottom:10px;">${bossName}</div>
         <div style="font-size:13px;color:#8aa0b8;letter-spacing:3px;margin-bottom:6px;">ACT ${gs.act} — FINAL BOSS</div>
-        <div style="font-size:11px;color:${theme.color||'#c9a84c'}88;font-style:italic;">"${theme.bossIntro||theme.intro||''}"</div>
+        <div style="font-size:11px;color:${bossColor}88;font-style:italic;">"${bossIntro}"</div>
       </div>`;
     if(!document.getElementById('_bossPulseStyle')){
       const st=document.createElement('style'); st.id='_bossPulseStyle';
@@ -5486,7 +5536,7 @@ function startBattle(isElite, isBoss) {
     }
     document.body.appendChild(ov);
     setTimeout(()=>{
-      ov.style.background=`radial-gradient(ellipse at center, ${theme.color||'#c9a84c'}18 0%, rgba(0,0,0,0.92) 70%)`;
+      ov.style.background=`radial-gradient(ellipse at center, ${bossColor}18 0%, rgba(0,0,0,0.92) 70%)`;
       document.getElementById('_bossIntroInner').style.opacity='1';
       document.getElementById('_bossIntroInner').style.transform='scale(1) translateY(0)';
       ov.querySelectorAll('._bossLine').forEach(l=>l.style.transform='scaleX(1)');
@@ -5894,20 +5944,24 @@ function spawnEnemiesForWave() {
       // 이미 보스가 스폰됐다가 처치됐으면 → 승리
       if (bt._bossSpawned) { battleWon(); return; }
       bt._bossSpawned = true;
-      // 보스 HP: ACT3 대폭 상향 (ACT3=4.0), 초월 배율 포함
-      const bossActMult = act===1 ? 1.0 : act===2 ? 1.8 : 3.2; // [V1] ACT3 보스 HP -20% 조정
-      const bossHp = Math.ceil(260 * diff * bossActMult * ascM.bossHp);
-      // 보스 스피드: ACT3 더 빠르게, 초월 배율 포함
+      // 보스 변종 스탯 적용
+      const _bv = gs.bossVariant || (BOSS_VARIANTS[act]||BOSS_VARIANTS[1])[0];
+      // 보스 HP: ACT3 대폭 상향 (ACT3=4.0), 초월 배율 + 변종 배율 포함
+      const bossActMult = act===1 ? 1.0 : act===2 ? 1.8 : 3.2;
+      const bossHp = Math.ceil(260 * diff * bossActMult * ascM.bossHp * _bv.hpMult);
+      // 보스 스피드: ACT3 더 빠르게, 초월 배율 + 변종 배율 포함
       const bossBaseSpd = act===3 ? 0.72 : act===2 ? 0.58 : 0.5;
       // 초월 10+: 보스 공격 타이머 감소 (더 빈번한 공격)
       const aggroMult = 1 / (1 + ascM.bossAggro);
       const chargeT = Math.ceil(220 * aggroMult);
       const summonT = Math.ceil(420 * aggroMult);
-      e={x,y,size:act===3?62:56,speed:bossBaseSpd*spdM*ascM.bossSpd,hp:bossHp,maxHp:bossHp,
-         color:'#c9a84c',type:'boss',isBoss:true,
+      e={x,y,size:act===3?62:56,speed:bossBaseSpd*spdM*ascM.bossSpd*_bv.spdMult,hp:bossHp,maxHp:bossHp,
+         color:_bv.color||'#c9a84c',type:'boss',isBoss:true,
          chargeTimer:chargeT, summonTimer:summonT, hitFlash:0, phase:1,
-         _spdM: spdM, // 페이즈 전환 속도 복구에 사용
-         _boss4Phase: ascM.boss4Phase || act===3}; // ACT3 or 초월25+는 4페이즈
+         _spdM: spdM,            // 페이즈 전환 속도 복구에 사용
+         _chargeBonus: _bv.chargeBonus || 1.0,  // 변종 돌진 빈도 배율
+         _summonBonus: _bv.summonBonus || 1.0,  // 변종 소환 빈도 배율
+         _boss4Phase: ascM.boss4Phase || act===3 || _bv.id==='voidgod'}; // 공허신은 항상 4페이즈
       bt.enemies.push(e); return;
     }
     // ACT별 적 테마 색상 및 스폰 비율
@@ -7392,7 +7446,8 @@ function updateBattle() {
 
       // ── 돌진 ──
       e.chargeTimer--;
-      const chargeInterval = e.phase>=4 ? 90 : e.phase>=2 ? 140 : 220;
+      const _cb = e._chargeBonus || 1;
+      const chargeInterval = Math.ceil((e.phase>=4 ? 90 : e.phase>=2 ? 140 : 220) / _cb);
       if(e.chargeTimer<=0){
         const chargeSpd = e.phase>=4 ? 11 : e.phase>=3 ? 9 : e.phase>=2 ? 7.5 : 6;
         e.speed = chargeSpd;
@@ -7405,7 +7460,8 @@ function updateBattle() {
 
       // ── 소환 ──
       e.summonTimer--;
-      const summonInterval = e.phase>=4 ? 150 : e.phase>=3 ? 180 : e.phase>=2 ? 260 : 380; // [H3] phase4 간격 120→150으로 완화
+      const _sb = e._summonBonus || 1;
+      const summonInterval = Math.ceil((e.phase>=4 ? 150 : e.phase>=3 ? 180 : e.phase>=2 ? 260 : 380) / _sb); // [H3] phase4 간격 120→150으로 완화
       if(e.summonTimer<=0){
         const cnt = e.phase>=4 ? 4 : e.phase>=3 ? 5 : e.phase>=2 ? 4 : 3; // [H3] phase4 소환 수 6→4로 감소
         for(let k=0;k<cnt;k++){
@@ -9948,12 +10004,14 @@ function drawHUD(ctx) {
     const boss = bt.enemies && bt.enemies.find(e => e.isBoss);
     if (boss) {
       const bossTheme = (window.ACT_THEMES || [])[gs.act - 1] || {};
-      const bossName  = bossTheme.bossName  || '???';
-      const bossEmoji = bossTheme.bossEmoji || '👑';
+      const _bvHUD = gs.bossVariant || null;
+      const bossName  = _bvHUD?.name  || bossTheme.bossName  || '???';
+      const bossEmoji = _bvHUD?.emoji || bossTheme.bossEmoji || '👑';
       const hpRatio = Math.max(0, boss.hp / boss.maxHp);
       const phase = boss.phase || 1;
-      // 페이즈별 색상
-      const phaseCol = phase >= 3 ? '#ff3030' : phase >= 2 ? '#ff7030' : '#c9a84c';
+      // 페이즈별 색상 (변종 색상 우선)
+      const _bvBaseCol = _bvHUD?.color || '#c9a84c';
+      const phaseCol = phase >= 3 ? '#ff3030' : phase >= 2 ? '#ff7030' : _bvBaseCol;
       const barH2 = 18;  // 이전 14px → 18px 더 두껍게
       const barW2 = W - PAD * 2 - 6;
       const barX2 = PAD + 3;
