@@ -10452,19 +10452,29 @@ function drawHUD(ctx) {
       });
     }
 
-    // 시너지 dots (하단 좌측 위, 있을 때만)
+    // 시너지 미니 필 (콤팩트 - 이모지+이름, 한눈에 파악)
     if (activeSyns.length > 0) {
-      const dotR=5, dotGap=4;
-      const dotY = cy0 - dotR*2 - 6;
-      let dotX = PAD;
-      activeSyns.forEach(syn=>{
-        bt._synHUDPos.push({syn,x:dotX-dotR,y:dotY-dotR,w:dotR*2,h:dotR*2});
+      const pillH = 19, pillGap = 4, pillPadX = 7;
+      const pillY = cy0 - pillH - 6;
+      let pillX = PAD;
+      activeSyns.forEach(syn => {
+        ctx.font = '11px serif';
+        const label = `${syn.emoji} ${syn.name}`;
+        const tw = ctx.measureText(label).width;
+        const pillW = tw + pillPadX * 2;
+        bt._synHUDPos.push({syn, x:pillX, y:pillY, w:pillW, h:pillH});
         ctx.save();
-        ctx.shadowColor=syn.color; ctx.shadowBlur=6;
-        ctx.fillStyle=syn.color;
-        ctx.beginPath(); ctx.arc(dotX, dotY, dotR, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = syn.color + '28';
+        roundRect(ctx, pillX, pillY, pillW, pillH, 10); ctx.fill();
+        ctx.strokeStyle = syn.color + 'bb'; ctx.lineWidth = 1;
+        ctx.shadowColor = syn.color; ctx.shadowBlur = 7;
+        roundRect(ctx, pillX, pillY, pillW, pillH, 10); ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = syn.color;
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(label, pillX + pillPadX, pillY + pillH / 2);
         ctx.restore();
-        dotX += dotR*2+dotGap;
+        pillX += pillW + pillGap;
       });
     }
 
@@ -10472,7 +10482,7 @@ function drawHUD(ctx) {
     if (epList.length > 0) {
       const epSz=18, epGap=2;
       const epW = Math.min(epList.length,10)*(epSz+epGap)-epGap;
-      const epX0 = PAD, epY0 = cy0 - epSz - (activeSyns.length>0?18:6);
+      const epX0 = PAD, epY0 = cy0 - epSz - (activeSyns.length>0?29:6);
       ctx.save();
       ctx.fillStyle='rgba(14,4,28,0.78)';
       roundRect(ctx,epX0-3,epY0-3,epW+6,epSz+6,5); ctx.fill();
@@ -11371,32 +11381,55 @@ function showCardSelection(onDone, opts) {
   infoPanel.id = '_cardInfoPanel';
   infoPanel.style.cssText = 'width:100%;max-width:600px;margin:0 auto;';
 
-  // ── 항상 보이는 줄: 활성 시너지 + 토글 버튼 ──
+  // ── 항상 보이는 줄: 활성 시너지 + 진행 중 시너지 ──
   const alwaysRow = document.createElement('div');
   alwaysRow.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;margin-top:8px;min-height:28px;';
 
   if (activeSynsNow.length > 0) {
     activeSynsNow.forEach(syn => {
       const pill = document.createElement('span');
-      pill.style.cssText = `background:${syn.color}22;border:1px solid ${syn.color}66;border-radius:100px;
-        padding:3px 11px;font-size:11px;color:${syn.color};font-weight:700;white-space:nowrap;`;
+      pill.style.cssText = `background:${syn.color}22;border:1px solid ${syn.color}88;border-radius:100px;
+        padding:3px 11px;font-size:11px;color:${syn.color};font-weight:700;white-space:nowrap;
+        box-shadow:0 0 8px ${syn.color}44;`;
       pill.textContent = `${syn.emoji} ${syn.name} ✓`;
+      pill.title = syn.desc;
       alwaysRow.appendChild(pill);
     });
-  } else {
+  }
+
+  // 진행 중 시너지 — 항상 표시 (토글 불필요)
+  if (nearSyns.length > 0) {
+    if (activeSynsNow.length > 0) {
+      const sep = document.createElement('span');
+      sep.style.cssText = 'color:rgba(60,90,120,0.5);font-size:11px;';
+      sep.textContent = '│';
+      alwaysRow.appendChild(sep);
+    }
+    nearSyns.forEach(({syn, have, total}) => {
+      const pill = document.createElement('span');
+      const pct = Math.round(have / total * 100);
+      pill.style.cssText = `position:relative;overflow:hidden;border:1px solid ${syn.color}44;border-radius:100px;
+        padding:3px 11px;font-size:11px;color:#8aaac8;background:rgba(255,255,255,0.03);white-space:nowrap;cursor:default;`;
+      pill.innerHTML = `<span style="position:absolute;inset:0;width:${pct}%;background:${syn.color}1a;border-radius:inherit;"></span>
+        <span style="position:relative">${syn.emoji} ${syn.name} <span style="color:${syn.color}cc;font-weight:700">${have}/${total}</span></span>`;
+      pill.title = `${syn.desc}\n추가 필요: ${syn.requires.filter(r=>!new Set(gs.deck.map(c=>c.id)).has(r)).map(r=>CARD_POOL.find(c=>c.id===r)?.name||r).join(', ')}`;
+      alwaysRow.appendChild(pill);
+    });
+  }
+
+  if (activeSynsNow.length === 0 && nearSyns.length === 0) {
     const noSyn = document.createElement('span');
-    noSyn.style.cssText = 'font-size:11px;color:rgba(100,130,160,0.6);';
-    noSyn.textContent = '활성 시너지 없음';
+    noSyn.style.cssText = 'font-size:11px;color:rgba(100,130,160,0.5);';
+    noSyn.textContent = '시너지 없음 — 조합을 만들어보세요';
     alwaysRow.appendChild(noSyn);
   }
 
-  // 토글 버튼 (스탯 + 진행 중 시너지)
-  const detailCount = nearSyns.length;
+  // 토글 버튼 (스탯만)
   const toggleBtn = document.createElement('button');
-  toggleBtn.style.cssText = `margin-left:6px;padding:3px 10px;font-size:10px;font-family:'Noto Sans KR',sans-serif;
+  toggleBtn.style.cssText = `margin-left:4px;padding:3px 10px;font-size:10px;font-family:'Noto Sans KR',sans-serif;
     background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:100px;
     color:rgba(160,190,220,0.7);cursor:pointer;transition:all 0.18s;white-space:nowrap;`;
-  toggleBtn.textContent = `📊 스탯 · 시너지 진행 ${detailCount > 0 ? `(+${detailCount})` : ''}`;
+  toggleBtn.textContent = '📊 스탯';
   alwaysRow.appendChild(toggleBtn);
   infoPanel.appendChild(alwaysRow);
 
@@ -11425,22 +11458,7 @@ function showCardSelection(onDone, opts) {
     detailPanel.appendChild(statRow);
   }
 
-  // 진행 중 시너지
-  if (nearSyns.length > 0) {
-    const nearRow = document.createElement('div');
-    nearRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;justify-content:center;';
-    nearSyns.forEach(({syn,have,total}) => {
-      const pill = document.createElement('span');
-      // 진행 바 느낌: have/total 비율로 배경 채우기
-      const pct = Math.round(have/total*100);
-      pill.style.cssText = `position:relative;overflow:hidden;border:1px solid ${syn.color}33;border-radius:100px;
-        padding:3px 11px;font-size:11px;color:#8aaac8;background:rgba(255,255,255,0.03);`;
-      pill.innerHTML = `<span style="position:absolute;inset:0;width:${pct}%;background:${syn.color}18;border-radius:inherit;"></span>
-        <span style="position:relative">${syn.emoji} ${syn.name} <span style="color:${syn.color};font-weight:700">${have}/${total}</span></span>`;
-      nearRow.appendChild(pill);
-    });
-    detailPanel.appendChild(nearRow);
-  }
+  // (진행 중 시너지는 위 alwaysRow에 항상 표시됨)
 
   infoPanel.appendChild(detailPanel);
 
@@ -11625,21 +11643,27 @@ function showCardSelection(onDone, opts) {
       <div class="card-effect">${card.effect}</div>
       ${_isCurseCard ? `<div style="margin-top:6px;padding:3px 8px;border-radius:6px;background:rgba(224,80,80,0.12);border:1px solid rgba(224,80,80,0.3);font-size:9px;color:#e05050;font-weight:700;">⚠️ 고위험 고보상</div>` : ''}`;
 
-    // 시너지 발동 배지만 기본 표시 (✨ 발동 시에만)
+    // 시너지 발동 배지 + 카드 사전 강조
     if (preview.length > 0) {
+      // 카드 자체에 글로우 테두리 (선택 전부터 눈에 띄게)
+      el.style.outline = `2px solid ${preview[0].color}cc`;
+      el.style.boxShadow = `0 0 22px 6px ${preview[0].color}55, inset 0 0 12px ${preview[0].color}18`;
+      // 발동 배지 (기존보다 더 눈에 띄게)
       const badge = document.createElement('div');
-      badge.style.cssText = `margin-top:8px;padding:5px 8px;border-radius:8px;
-        background:${preview[0].color}18;border:1px solid ${preview[0].color}66;text-align:center;`;
+      badge.style.cssText = `margin-top:8px;padding:6px 10px;border-radius:10px;
+        background:${preview[0].color}22;border:1px solid ${preview[0].color}88;text-align:center;`;
       badge.innerHTML = preview.map(s =>
-        `<div style="color:${s.color};font-size:10px;font-weight:700">✨ ${s.emoji} ${s.name} 발동!</div>`
+        `<div style="color:${s.color};font-size:11px;font-weight:700;letter-spacing:0.3px">✨ ${s.emoji} ${s.name} 발동!</div>`
       ).join('');
       el.appendChild(badge);
     } else if (contrib.length > 0) {
-      // 미완성 시너지: 아이콘 힌트 한 줄만 (최소 표시)
+      // 미완성 시너지: 진행 힌트 (더 명확하게)
       const hint = document.createElement('div');
-      hint.style.cssText = `margin-top:6px;padding:3px 6px;border-radius:6px;font-size:9px;
-        color:#5a7a9a;text-align:center;`;
-      hint.textContent = contrib.slice(0,2).map(({syn,have,total})=>`${syn.emoji} ${have+1}/${total}`).join('  ');
+      hint.style.cssText = `margin-top:6px;padding:4px 8px;border-radius:8px;font-size:10px;
+        color:#6a8aaa;text-align:center;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);`;
+      hint.innerHTML = contrib.slice(0,2).map(({syn,have,total}) =>
+        `<span style="color:${syn.color}88">${syn.emoji}</span> ${have+1}/${total}`
+      ).join('<span style="color:#3a5a7a;margin:0 4px">·</span>');
       el.appendChild(hint);
     }
 
