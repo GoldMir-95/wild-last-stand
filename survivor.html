@@ -2270,6 +2270,19 @@ function showResourceOverlay() {
   const ov = document.createElement('div');
   ov.className = 'lb-overlay';
 
+  // 파일 → base64 저장 공통 처리
+  function _handleFile(file, resKey) {
+    if (!file || !file.type.startsWith('image/')) { showToast('⚠️ 이미지 파일만 가능합니다', 1800); return; }
+    if (file.size > 3 * 1024 * 1024) { showToast('⚠️ 파일이 너무 큽니다 (최대 3MB)', 2000); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      _saveRes(resKey, e.target.result);
+      showToast(`✅ 저장 완료!`, 1200);
+      renderRes();
+    };
+    reader.readAsDataURL(file);
+  }
+
   function renderRes() {
     const allGroups = [
       { key:'char',  title:'🐧 캐릭터', items: _RES_DEFS.char  },
@@ -2284,8 +2297,8 @@ function showResourceOverlay() {
         <button id="_resClose" class="lb-ov-back">✕</button>
       </div>
       <div style="font-size:11px;color:#5a7a9a;margin-bottom:16px;line-height:1.6">
-        각 슬롯에 이미지를 업로드하면 인게임에서 해당 캐릭터/적/보스가 그 이미지로 표시됩니다.<br>
-        <span style="color:#4a9eff">PNG/JPG/WebP 권장 · 투명 배경(PNG)이면 더 자연스러워요</span>
+        슬롯에 이미지를 <strong style="color:#a0c8ff">드래그해서 놓거나</strong> 클릭해서 업로드하세요.<br>
+        <span style="color:#4a9eff">투명 배경 PNG 권장 · 최대 3MB</span>
       </div>
       ${allGroups.map(g => `
         <div style="font-size:12px;font-weight:800;color:#c9a84c;letter-spacing:1px;margin:18px 0 10px">${g.title}</div>
@@ -2293,48 +2306,82 @@ function showResourceOverlay() {
           ${g.items.map(item => {
             const resKey = `${g.key}_${item.id}`;
             const hasRes = !!window._RES[resKey];
-            const thumb = hasRes ? `<img src="${localStorage.getItem(_RES_PREFIX+resKey)||''}" style="width:48px;height:48px;object-fit:contain;border-radius:8px">` :
-              `<div style="width:48px;height:48px;border-radius:8px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-size:28px">${item.emoji}</div>`;
-            return `<div style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.04);border:1px solid ${hasRes?'rgba(78,207,122,0.3)':'rgba(255,255,255,0.07)'};border-radius:12px;padding:10px 12px">
+            const thumb = hasRes
+              ? `<img src="${localStorage.getItem(_RES_PREFIX+resKey)||''}" style="width:52px;height:52px;object-fit:contain;border-radius:8px;pointer-events:none">`
+              : `<div style="width:52px;height:52px;border-radius:8px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-size:30px;pointer-events:none">${item.emoji}</div>`;
+            return `
+            <div class="_res-slot" data-reskey="${resKey}"
+              style="display:flex;align-items:center;gap:12px;
+                background:rgba(255,255,255,0.04);
+                border:2px dashed ${hasRes?'rgba(78,207,122,0.4)':'rgba(255,255,255,0.12)'};
+                border-radius:12px;padding:10px 12px;cursor:pointer;
+                transition:border-color .15s,background .15s;position:relative">
               ${thumb}
-              <div style="flex:1;min-width:0">
-                <div style="font-size:13px;font-weight:700;color:#d8e4f0;margin-bottom:2px">${item.label}</div>
-                <div style="font-size:10px;color:${hasRes?'#4ecf7a':'#5a7a9a'}">${hasRes?'✅ 이미지 등록됨':'기본 그래픽 사용 중'}</div>
+              <div style="flex:1;min-width:0;pointer-events:none">
+                <div style="font-size:13px;font-weight:700;color:#d8e4f0;margin-bottom:3px">${item.label}</div>
+                <div style="font-size:10px;color:${hasRes?'#4ecf7a':'#5a7a9a'}">${hasRes?'✅ 이미지 등록됨':'🖱 드래그하거나 클릭해서 업로드'}</div>
               </div>
-              <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-                <label style="background:linear-gradient(135deg,#4a9eff,#2060c0);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">
-                  📁 업로드
-                  <input type="file" accept="image/*" style="display:none" onchange="window._resUpload('${resKey}',this)">
-                </label>
-                ${hasRes?`<button onclick="window._resDelete('${resKey}')" style="background:rgba(255,60,60,0.15);border:1px solid rgba(255,60,60,0.3);color:#ff6060;border-radius:8px;padding:5px 10px;font-size:10px;cursor:pointer;font-weight:700">🗑 삭제</button>`:''}
-              </div>
+              ${hasRes?`<button class="_res-del" data-reskey="${resKey}"
+                style="flex-shrink:0;background:rgba(255,60,60,0.15);border:1px solid rgba(255,60,60,0.3);
+                color:#ff6060;border-radius:8px;padding:6px 10px;font-size:11px;cursor:pointer;font-weight:700;z-index:1">
+                🗑</button>`:''}
+              <input type="file" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" data-reskey="${resKey}">
             </div>`;
           }).join('')}
         </div>
       `).join('')}
       <div style="margin-top:20px;padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;font-size:10px;color:#3a5a6a;text-align:center">
-        이미지는 브라우저 로컬에 저장됩니다 (앱 삭제/캐시 초기화 시 사라짐)
+        이미지는 브라우저 로컬에 저장됩니다 (캐시 초기화 시 사라짐)
       </div>
     </div>`;
 
-    // 업로드 핸들러
-    window._resUpload = (resKey, input) => {
-      const file = input.files[0];
-      if (!file) return;
-      if (file.size > 2 * 1024 * 1024) { showToast('⚠️ 파일이 너무 큽니다 (최대 2MB)', 2000); return; }
-      const reader = new FileReader();
-      reader.onload = e => {
-        _saveRes(resKey, e.target.result);
-        showToast(`✅ ${resKey} 이미지 저장!`, 1500);
-        renderRes(); // 목록 새로고침
-      };
-      reader.readAsDataURL(file);
-    };
-    window._resDelete = (resKey) => {
-      _deleteRes(resKey);
-      showToast(`🗑 ${resKey} 삭제됨`, 1200);
-      renderRes();
-    };
+    // ── 파일 input change (클릭 업로드)
+    ov.querySelectorAll('input[type=file]').forEach(inp => {
+      inp.addEventListener('change', () => {
+        _handleFile(inp.files[0], inp.dataset.reskey);
+        inp.value = '';
+      });
+    });
+
+    // ── 삭제 버튼 (파일 input보다 앞에 잡아야 함)
+    ov.querySelectorAll('._res-del').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        _deleteRes(btn.dataset.reskey);
+        showToast('🗑 삭제됨', 1000);
+        renderRes();
+      });
+    });
+
+    // ── 드래그앤드롭 이벤트 (슬롯별)
+    ov.querySelectorAll('._res-slot').forEach(slot => {
+      const resKey = slot.dataset.reskey;
+
+      slot.addEventListener('dragover', e => {
+        e.preventDefault();
+        slot.style.borderColor = '#4ecf7a';
+        slot.style.background = 'rgba(78,207,122,0.10)';
+        // 텍스트 힌트
+        const hint = slot.querySelector('._drag-hint');
+        if (hint) hint.style.display = 'flex';
+      });
+
+      slot.addEventListener('dragleave', e => {
+        if (slot.contains(e.relatedTarget)) return;
+        slot.style.borderColor = '';
+        slot.style.background = '';
+        const hint = slot.querySelector('._drag-hint');
+        if (hint) hint.style.display = 'none';
+      });
+
+      slot.addEventListener('drop', e => {
+        e.preventDefault();
+        slot.style.borderColor = '';
+        slot.style.background = '';
+        const file = e.dataTransfer.files[0];
+        _handleFile(file, resKey);
+      });
+    });
 
     ov.querySelector('#_resClose').addEventListener('click', () => { history.back(); ov._doClose(); });
   }
