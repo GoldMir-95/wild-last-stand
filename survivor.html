@@ -4341,10 +4341,17 @@ function drawMap() {
   // ═══════════════════════════════════
   //  4. 노드 — 카드 스타일
   // ═══════════════════════════════════
+  // 미스터리 힌트 범위: 현재 노드 레이어 + 2 (접근 가능 레이어 바로 다음)
+  const _liCurrent = gs.currentNodeId ? parseInt(gs.currentNodeId.split('-')[0]) : -1;
+
   Object.values(nodePositions).forEach(({ x, y, node }) => {
     // mystery 노드: 접근 가능하거나 방문 후엔 실제 타입 공개
     const accessible = isNodeAccessible(node);
-    const _displayType = (node.type === 'mystery' && (accessible || node.visited))
+    const _liNode = parseInt(node.id.split('-')[0]);
+    // 힌트 조건: mystery + 미방문 + 미접근 + 바로 다음 레이어
+    const _isMysteryHint = node.type === 'mystery' && !accessible && !node.visited
+      && _liNode === _liCurrent + 2;
+    const _displayType = (node.type === 'mystery' && (accessible || node.visited || _isMysteryHint))
       ? (node._realType || 'battle') : node.type;
     const nt = NODE_TYPES[_displayType] || NODE_TYPES.mystery;
     const visited = node.visited;
@@ -4437,20 +4444,38 @@ function drawMap() {
     const emojiSize = isBossNode ? 28 : isHover ? 24 : 22;
     mctx.font = `${emojiSize}px serif`;
     mctx.textAlign='center'; mctx.textBaseline='middle';
-    mctx.globalAlpha = visited ? 0.35 : accessible ? 1 : 0.5;
-    if (accessible && !visited) {
-      mctx.shadowColor = nt.color; mctx.shadowBlur = 6;
+    if (_isMysteryHint) {
+      // 힌트: 실제 이모지를 희미하게 표시 (뭔가 보이지만 불확실)
+      mctx.globalAlpha = 0.28;
+      mctx.fillText(nt.emoji, x, y - 4);
+      mctx.shadowBlur = 0;
+      // 눈 아이콘 (상단 우측 귀퉁이에 작게)
+      mctx.font = '9px serif';
+      mctx.globalAlpha = 0.45;
+      mctx.fillText('👁', x + NW/2 - 9, y - NH/2 + 10);
+    } else {
+      mctx.globalAlpha = visited ? 0.35 : accessible ? 1 : 0.5;
+      if (accessible && !visited) {
+        mctx.shadowColor = nt.color; mctx.shadowBlur = 6;
+      }
+      mctx.fillText(nt.emoji, x, y - 4);
+      mctx.shadowBlur = 0;
     }
-    mctx.fillText(nt.emoji, x, y - 4);
-    mctx.shadowBlur=0;
 
     // ── 타입 레이블 ──
     mctx.font = `bold ${isBossNode?10:8}px "Noto Sans KR",Arial`;
     mctx.textAlign='center'; mctx.textBaseline='alphabetic';
-    const labelColor = visited ? '#3a5a4a' : accessible ? nt.color : '#4a6a8a';
-    mctx.fillStyle = labelColor;
-    mctx.globalAlpha = visited ? 0.4 : accessible ? 0.9 : 0.5;
-    mctx.fillText(nt.label, x, y+NH/2-6);
+    if (_isMysteryHint) {
+      // 힌트: 타입명 대신 "???" 표시
+      mctx.fillStyle = '#5a7a9a';
+      mctx.globalAlpha = 0.38;
+      mctx.fillText('???', x, y+NH/2-6);
+    } else {
+      const labelColor = visited ? '#3a5a4a' : accessible ? nt.color : '#4a6a8a';
+      mctx.fillStyle = labelColor;
+      mctx.globalAlpha = visited ? 0.4 : accessible ? 0.9 : 0.5;
+      mctx.fillText(nt.label, x, y+NH/2-6);
+    }
 
     // ── 방문 완료 체크 ──
     if (visited) {
@@ -4565,8 +4590,12 @@ mapCanvas.addEventListener('mousemove', e => {
     const nt = NODE_TYPES[foundNode.type] || {};
     const accessible = isNodeAccessible(foundNode);
     const visited = foundNode.visited;
-    // mystery 노드는 접근 가능할 때 실제 타입 공개
     const _ttNode = foundNode;
+    const _ttLiNode = parseInt(_ttNode.id.split('-')[0]);
+    const _ttLiCurrent = gs.currentNodeId ? parseInt(gs.currentNodeId.split('-')[0]) : -1;
+    const _ttIsHint = _ttNode.type === 'mystery' && !accessible && !visited
+      && _ttLiNode === _ttLiCurrent + 2;
+    // mystery 노드: 접근 가능/방문 시 실제 타입, 힌트 범위는 흐릿 공개
     const _ttType = (_ttNode.type === 'mystery' && (accessible || visited))
       ? (_ttNode._realType || 'battle') : _ttNode.type;
     const typeDescs = {
@@ -4576,15 +4605,22 @@ mapCanvas.addEventListener('mousemove', e => {
       shop:     `🏪 <b>상점</b><br><span style="color:#8aa0b8">룬·아티팩트·체력 구매 가능</span>`,
       rest:     `🏕️ <b>휴식처</b><br><span style="color:#4ecf7a">HP 회복 / 룬 추가 / 룬 강화</span>`,
       event:    `🎭 <b>이벤트</b><br><span style="color:#aaa0ff">선택지를 통해 다양한 결과가 펼쳐집니다</span>`,
-      treasure: `💰 <b>보물</b><br><span style="color:#ffd060">골드 획득 + 룬 또는 유물 중 선택</span>`,
+      treasure: `💰 <b>보물</b><br><span style="color:#ffd060">골드 획득 + 룬·유물·골드 중 선택</span>`,
       mystery:  `🌀 <b>미지의 장소</b><br><span style="color:#c090ff">가까이 다가가야 알 수 있습니다</span>`,
     };
+    // 힌트 범위 mystery: "어렴풋이 보인다" 툴팁
+    const _hintRealNt = _ttIsHint ? (NODE_TYPES[_ttNode._realType] || NODE_TYPES.mystery) : null;
+    const _hintDesc = _ttIsHint
+      ? `👁 <b>미지의 장소</b><br><span style="color:#7090b0">가까이서 보니... 어렴풋이 <span style="color:${_hintRealNt.color}">${_hintRealNt.emoji}</span> 같은 게 보입니다</span>`
+      : null;
     const stateTag = visited
       ? `<div style="margin-top:6px;font-size:10px;color:#4ecf7a">✓ 방문 완료</div>`
       : accessible
         ? `<div style="margin-top:6px;font-size:10px;color:#4a9eff">→ 진입 가능</div>`
-        : `<div style="margin-top:6px;font-size:10px;color:#5a5a6a">🔒 아직 접근 불가</div>`;
-    tip.innerHTML = (typeDescs[_ttType] || `<b>${_ttType}</b>`) + stateTag;
+        : _ttIsHint
+          ? `<div style="margin-top:6px;font-size:10px;color:#6070a0">👁 한 발 더 가면 알 수 있어요</div>`
+          : `<div style="margin-top:6px;font-size:10px;color:#5a5a6a">🔒 아직 접근 불가</div>`;
+    tip.innerHTML = (_hintDesc || typeDescs[_ttType] || `<b>${_ttType}</b>`) + stateTag;
     tip.style.opacity = '1';
     tip.style.left = (e.clientX + 14) + 'px';
     tip.style.top  = (e.clientY - 10) + 'px';
