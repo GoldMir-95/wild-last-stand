@@ -16057,8 +16057,8 @@ function resizeGame(){
     gameCanvas.style.borderRadius = '12px';
   }
 
-  // 지도 캔버스
-  const mw = Math.min(vw - (isMobile ? 0 : 16), 960);
+  // 지도 캔버스 (모바일에서 화면 전체 너비 사용, 좌측 여백 최소화)
+  const mw = Math.min(vw - (isMobile && isPortrait ? 0 : 16), 960);
   let mh, mhInternal;
   if (isMobile && isPortrait) {
     // 모바일 세로: 맵 헤더 아래 남은 높이 전부 사용
