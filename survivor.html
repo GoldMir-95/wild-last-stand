@@ -392,6 +392,58 @@ canvas{display:block;}
   transition:all 0.18s;flex-shrink:0;
 }
 .screen-back-btn:hover{background:rgba(255,255,255,0.11);color:#fff;border-color:rgba(255,255,255,0.28);}
+
+/* ══════════════════════════════════════
+   📱 모바일 전용 최적화 (@media max-width:520px)
+   ══════════════════════════════════════ */
+@media (max-width:520px){
+  /* 더블탭 줌 방지 + 터치 최적화 */
+  body{touch-action:manipulation;}
+
+  /* ── 카드 선택 ── */
+  .card-row{gap:10px;padding:0 8px;}
+  .card{width:calc(50% - 9px);min-width:140px;min-height:165px;padding:12px 8px;}
+  .card-icon{font-size:28px;margin-bottom:6px;}
+  .card-name{font-size:13px;}
+  .card-effect{font-size:11px;}
+  /* 모바일: 탭 피드백 (hover 대신 active) */
+  .card:active{transform:translateY(-2px) scale(1.02) !important;}
+
+  /* ── 결과/게임오버 패널 ── */
+  .result-panel{width:min(380px,96vw);padding:20px 16px;}
+  .result-title{font-size:26px;}
+  .stat-row{font-size:13px;}
+
+  /* ── 휴식 화면 ── */
+  .rest-options{flex-wrap:wrap;gap:10px;padding:0 12px;}
+  .rest-opt{width:calc(50% - 5px);min-width:130px;padding:14px 8px;}
+  .rest-opt .rest-icon{font-size:28px;margin-bottom:6px;}
+  .rest-opt .rest-name{font-size:13px;}
+  .rest-opt .rest-desc{font-size:10px;}
+
+  /* ── 맵 화면 헤더 ── */
+  #mapScreen .map-header{padding:10px 14px;border-radius:0;}
+  #mapScreen .map-title{font-size:16px;letter-spacing:1px;}
+
+  /* ── 상점 ── */
+  .shop-items{gap:6px;}
+
+  /* ── 공통 패널 ── */
+  .panel{padding:18px 16px;}
+
+  /* ── 카드 스킵 버튼 크게 ── */
+  .skip-btn{font-size:14px;padding:8px 16px;display:inline-block;}
+
+  /* ── 전투 결과 통계 행 ── */
+  .stat-row{padding:7px 10px;}
+
+  /* ── 성장 패널 높이 ── */
+  #shopScreen,#restScreen,#cardScreen,#deckScreen{padding-bottom:80px;}
+
+  /* ── iOS 하단 Safe Area 대응 ── */
+  .lb-nav{padding-bottom:max(env(safe-area-inset-bottom,0px),6px);}
+  #toast{bottom:calc(env(safe-area-inset-bottom,0px) + 10%);}
+}
 </style>
 </head>
 <body>
@@ -5116,18 +5168,29 @@ function isNodeAccessible(node) {
   });
 }
 
-mapCanvas.addEventListener('click', e => {
+const _mapIsMobile = () => navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+function _mapHandleNodeClick(clientX, clientY) {
   if (gs.screen !== 'mapScreen') return;
   const rect = mapCanvas.getBoundingClientRect();
   const scaleX = mapCanvas.width / rect.width, scaleY = mapCanvas.height / rect.height;
-  const mx = (e.clientX - rect.left)*scaleX, my = (e.clientY - rect.top)*scaleY;
+  const mx = (clientX - rect.left)*scaleX, my = (clientY - rect.top)*scaleY;
+  // 모바일: 화면 픽셀 기준 40px 히트 영역 → 캔버스 내부 좌표로 변환
+  const hitR = _mapIsMobile() ? Math.round(40 / (rect.width / mapCanvas.width)) : 30;
   Object.values(nodePositions).forEach(({x,y,node})=>{
-    if (Math.hypot(mx-x,my-y)<30 && isNodeAccessible(node)) {
-      playSound(440, 0.08, 'sine', 0.05); // 짧은 선택음
+    if (Math.hypot(mx-x,my-y) < hitR && isNodeAccessible(node)) {
+      playSound(440, 0.08, 'sine', 0.05);
       enterNode(node);
     }
   });
-});
+}
+mapCanvas.addEventListener('click', e => _mapHandleNodeClick(e.clientX, e.clientY));
+// 모바일 터치 — click보다 빠른 응답 + 스크롤 방지
+mapCanvas.addEventListener('touchend', e => {
+  if (gs.screen !== 'mapScreen') return;
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  _mapHandleNodeClick(t.clientX, t.clientY);
+}, { passive: false });
 mapCanvas.addEventListener('mousemove', e => {
   const rect = mapCanvas.getBoundingClientRect();
   const scaleX = mapCanvas.width/rect.width, scaleY = mapCanvas.height/rect.height;
@@ -5194,6 +5257,42 @@ mapCanvas.addEventListener('mouseleave', () => {
   const tip = document.getElementById('mapNodeTooltip');
   if (tip) tip.style.opacity = '0';
 });
+
+// 모바일: 꾹 누르면 노드 툴팁 표시
+let _mapTouchTipTimer = null;
+mapCanvas.addEventListener('touchstart', e => {
+  if (gs.screen !== 'mapScreen') return;
+  const t = e.touches[0];
+  const rect = mapCanvas.getBoundingClientRect();
+  const scaleX = mapCanvas.width / rect.width, scaleY = mapCanvas.height / rect.height;
+  const mx = (t.clientX - rect.left)*scaleX, my = (t.clientY - rect.top)*scaleY;
+  let foundNode = null;
+  Object.values(nodePositions).forEach(({x,y,node}) => {
+    if (Math.hypot(mx-x,my-y) < 60) foundNode = node;
+  });
+  if (!foundNode) return;
+  // 300ms 꾹 누름 → 툴팁
+  _mapTouchTipTimer = setTimeout(() => {
+    const nt = NODE_TYPES[foundNode.type] || {};
+    let tip = document.getElementById('mapNodeTooltip');
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.id = 'mapNodeTooltip';
+      tip.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;background:rgba(8,14,30,0.96);border:1px solid rgba(100,160,255,0.3);border-radius:10px;padding:10px 14px;font-family:"Noto Sans KR",sans-serif;font-size:13px;color:#d8e4f0;min-width:160px;max-width:240px;box-shadow:0 4px 20px rgba(0,0,0,0.7);transition:opacity 0.15s;';
+      document.body.appendChild(tip);
+    }
+    const accessible = isNodeAccessible(foundNode);
+    tip.innerHTML = `<b style="font-size:16px">${nt.emoji||'❓'} ${nt.label||foundNode.type}</b><br>
+      <span style="color:#8aa0b8;font-size:11px">${accessible ? '→ 탭해서 진입' : '🔒 아직 접근 불가'}</span>`;
+    tip.style.opacity = '1';
+    tip.style.left = Math.min(t.clientX + 14, window.innerWidth - 180) + 'px';
+    tip.style.top  = Math.max(t.clientY - 60, 10) + 'px';
+    setTimeout(() => { if (tip) tip.style.opacity = '0'; }, 1500);
+  }, 300);
+}, { passive: true });
+mapCanvas.addEventListener('touchend', () => {
+  clearTimeout(_mapTouchTipTimer);
+}, { passive: true });
 
 function enterNode(node) {
   Audio.sfx.mapMove();
@@ -14622,8 +14721,19 @@ function resizeGame(){
 
   // 지도 캔버스
   const mw = Math.min(vw - (isMobile ? 0 : 16), 960);
-  const mh = Math.floor(mw * 600 / 960);
-  mapCanvas.width  = 960; mapCanvas.height = 600;
+  let mh, mhInternal;
+  if (isMobile && isPortrait) {
+    // 모바일 세로: 맵 헤더 아래 남은 높이 전부 사용
+    const headerEl = document.querySelector('#mapScreen .map-header');
+    const headerH = headerEl ? headerEl.getBoundingClientRect().height : 56;
+    mh = Math.max(vh - headerH, Math.floor(mw * 600 / 960));
+    // 내부 해상도도 비율 맞춰 증가 (노드 간격 넓어짐)
+    mhInternal = Math.round(600 * mh / Math.floor(mw * 600 / 960));
+  } else {
+    mh = Math.floor(mw * 600 / 960);
+    mhInternal = 600;
+  }
+  mapCanvas.width  = 960; mapCanvas.height = mhInternal;
   mapCanvas.style.width  = mw + 'px';
   mapCanvas.style.height = mh + 'px';
 }
