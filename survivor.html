@@ -634,6 +634,17 @@ canvas{display:block;}
   /* 🛡️ 게임 화면 안전 영역 확보 */
   #battleCanvas, #gameCanvas{
     margin:0 auto;
+    width:100%;
+    height:auto;
+    max-width:none;
+  }
+
+  @media (max-width:520px){
+    #battleCanvas, #gameCanvas{
+      margin:0;
+      width:100%;
+      max-width:100%;
+    }
   }
 }
 </style>
@@ -11772,7 +11783,7 @@ function drawHUD(ctx) {
   const gameCanvas = document.getElementById('gameCanvas');
   const canvasDisplayWidth = gameCanvas ? gameCanvas.clientWidth : 800;
   const W = canvasDisplayWidth > 0 ? canvasDisplayWidth : 800;
-  const PAD = window.innerWidth < 520 ? 12 : 10;  // 모바일에서도 충분한 여백 확보 (6 → 12)
+  const PAD = window.innerWidth < 520 ? 20 : 10;  // 모바일에서 Canvas 좌측 공간 고려 (12 → 20)
 
   ctx.save();
 
