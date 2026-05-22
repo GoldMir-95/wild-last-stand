@@ -11772,7 +11772,7 @@ function drawHUD(ctx) {
   const gameCanvas = document.getElementById('gameCanvas');
   const canvasDisplayWidth = gameCanvas ? gameCanvas.clientWidth : 800;
   const W = canvasDisplayWidth > 0 ? canvasDisplayWidth : 800;
-  const PAD = window.innerWidth < 520 ? 6 : 10;  // 모바일에서 여백 감소
+  const PAD = window.innerWidth < 520 ? 12 : 10;  // 모바일에서도 충분한 여백 확보 (6 → 12)
 
   ctx.save();
 
