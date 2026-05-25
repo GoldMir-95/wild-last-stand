@@ -15616,184 +15616,42 @@ function showFinalVictory() {
 
 function showGameOver(won) {
   stopBattleTimers();
-  clearRunSave(); // 런 종료 시 세이브 삭제
+  clearRunSave();
   if (won) { showFinalVictory(); return; }
-  const earnedCoins = earnMetaCoins();
-
-  const _dPool = LANG === 'en' ? DEATH_MSGS_EN : DEATH_MSGS;
-  const deathMsg = _dPool[Math.floor(Math.random()*_dPool.length)];
-  const mm = String(Math.floor(gs.totalTime/60)).padStart(2,'0');
-  const ss = String(gs.totalTime%60).padStart(2,'0');
-
-  // 등급 계산
-  const killScore = gs.totalKills;
-  const actScore  = (gs.act - 1) * 100 + gs.currentLayer * 10;
-  const totalScore = killScore + actScore + gs.bossesDefeated * 50;
-  const grade = totalScore >= 400 ? 'S' : totalScore >= 250 ? 'A' : totalScore >= 120 ? 'B' : totalScore >= 50 ? 'C' : 'D';
-  const gradeColor = {S:'#f0c050',A:'#9b6ee8',B:'#4a9eff',C:'#4ecf7a',D:'#8aa0b8'}[grade];
-
-  // 진행도 바
-  let progressHTML = '<div style="display:flex;gap:3px;justify-content:center;margin-bottom:14px;flex-wrap:wrap;">';
-  for(let a=1;a<=ACTS;a++){
-    for(let f=0;f<FLOORS_PER_ACT;f++){
-      const isBoss = f===FLOORS_PER_ACT-1;
-      const done = a<gs.act || (a===gs.act && f<=gs.currentLayer);
-      const isCur = a===gs.act && f===gs.currentLayer;
-      const theme = ACT_THEMES[a-1];
-      const col = done ? (isBoss?'#e05050':theme.color) : 'rgba(255,255,255,0.1)';
-      const size = isBoss?'10px':'8px';
-      const w    = isBoss?'12px':size;
-      progressHTML += `<div style="width:${w};height:${size};border-radius:${isBoss?'3':'50'}px;background:${col};${isCur?'outline:2px solid #fff;outline-offset:1px;':''}"></div>`;
-    }
-    if(a<ACTS) progressHTML += '<div style="width:8px"></div>';
-  }
-  progressHTML += '</div>';
-
-  // 덱 카드 미리보기 (최대 12장)
-  const deckPreview = gs.deck.length > 0
-    ? `<div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-bottom:4px">
-        ${gs.deck.slice(0,12).map(c=>`<span title="${c.name}" style="font-size:18px;background:rgba(255,255,255,0.06);border-radius:6px;padding:3px 5px">${c.emoji}</span>`).join('')}
-        ${gs.deck.length>12?`<span style="font-size:11px;color:#5a7a9a;align-self:center">+${gs.deck.length-12}</span>`:''}
-      </div>`
-    : '<div style="color:#7a9abc;font-size:12px">룬 없음</div>';
-
-  // 유물 미리보기
-  const relicPreview = gs.relics.length > 0
-    ? `<div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center">
-        ${gs.relics.map(r=>`<span title="${r.name}" style="font-size:18px;background:rgba(255,255,255,0.06);border-radius:6px;padding:3px 5px">${r.emoji}</span>`).join('')}
-      </div>`
-    : '<div style="color:#7a9abc;font-size:12px">아티팩트 없음</div>';
-
-  // 활성 시너지
-  const synHtml = (() => {
-    const syns = getActiveSynergies();
-    if (!syns.length) return '';
-    return `<div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-top:8px">
-      ${syns.map(sy=>`<span style="background:${sy.color}22;border:1px solid ${sy.color}55;border-radius:100px;padding:3px 10px;font-size:11px;color:${sy.color}">${sy.emoji} ${sy.name}</span>`).join('')}
-    </div>`;
-  })();
-
-  const bpXpEarned = Math.floor(gs.totalKills * 0.3) + gs.bossesDefeated * 20 + gs.act * 5;
-
-  const challengeHtml = ''; // 챌린지 시스템 제거됨
-
-  const overlay = document.createElement('div');
-  overlay.id = '_deathOverlay';
-  // 모바일에서 overlay가 안 보이는 버그 수정: z-index와 display 강제 설정
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;background:rgba(4,6,14,0.96);opacity:0;transition:opacity 0.5s;overflow-y:auto;padding:24px 0;width:100vw;height:100vh;';
-
-  overlay.innerHTML = `
-    <div style="width:min(420px,96vw);padding:28px 24px 24px;background:linear-gradient(160deg,#0e1628 0%,#12203a 100%);
-      border:1px solid #1e3a5f;border-radius:22px;text-align:center;box-shadow:0 0 80px rgba(0,0,0,0.85);margin:auto;">
-
-      <!-- 헤더 -->
-      <div style="font-size:42px;margin-bottom:6px">${gs.selectedChar.emoji}</div>
-      <div style="font-family:'Cinzel',serif;font-size:10px;color:#e05050;letter-spacing:4px;margin-bottom:4px">ADVENTURE ENDED</div>
-      <div style="font-family:'Cinzel',serif;font-size:20px;font-weight:900;color:#d8e4f0;margin-bottom:2px">${gs.selectedChar.name}의 여정</div>
-      <div style="font-size:11px;color:#c9a84c;margin-bottom:14px;letter-spacing:1px">${getBuildName()}</div>
-
-      <!-- 등급 + 핵심 스탯 가로 -->
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-        <div style="width:58px;height:58px;border-radius:14px;background:${gradeColor}18;border:2px solid ${gradeColor};
-          display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
-          <div style="font-family:'Cinzel',serif;font-size:28px;font-weight:900;color:${gradeColor};line-height:1">${grade}</div>
-          <div style="font-size:8px;color:${gradeColor};opacity:0.7;letter-spacing:1px">GRADE</div>
-        </div>
-        <div style="flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
-          ${[
-            {l:'구역',v:`ACT${gs.act}·${gs.currentLayer+1}F`},
-            {l:'시간',v:`${mm}:${ss}`},
-            {l:'처치',v:`${gs.totalKills}`},
-          ].map(x=>`<div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:6px 4px">
-            <div style="font-size:8px;color:#5a7a9a;letter-spacing:1px">${x.l}</div>
-            <div style="font-size:13px;font-weight:800;color:#d8e4f0">${x.v}</div>
-          </div>`).join('')}
-        </div>
-      </div>
-
-      <!-- 상세 통계 (4열 2행) -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;">
-        ${[
-          {e:'💥',l:'준 피해',   v: gs._totalDmgDealt>999?`${(gs._totalDmgDealt/1000).toFixed(1)}k`:Math.round(gs._totalDmgDealt||0)+'', c:'#f87040'},
-          {e:'💔',l:'받은 피해', v: (gs._totalDmgTaken||0)>999?`${((gs._totalDmgTaken||0)/1000).toFixed(1)}k`:Math.round(gs._totalDmgTaken||0)+'', c:'#e05050'},
-          {e:'🔥',l:'최고 콤보', v: `${gs._maxCombo||0}킬`, c:'#f8e030'},
-          {e:'🛡️',l:'완벽 클리어',v: `${gs._perfectWaves||0}회`, c:'#4ecf7a'},
-          {e:'🪙',l:'획득 골드', v: `${gs._totalGoldEarned||0}`, c:'#c9a84c'},
-          {e:'🏆',l:'보스 처치', v: `${gs.bossesDefeated||0}회`, c:'#9b6ee8'},
-          {e:'⏱️',l:'플레이 시간',v:`${String(Math.floor(gs.totalTime/60)).padStart(2,'0')}:${String(gs.totalTime%60).padStart(2,'0')}`, c:'#7dd8ff'},
-          {e:'✨',l:'무결점 클리어',v:`${gs._noDmgClears||0}회`, c:'#d0a0ff'},
-        ].map(x=>`<div style="background:${x.c}0c;border:1px solid ${x.c}28;border-radius:8px;padding:7px 3px;text-align:center;">
-          <div style="font-size:12px;margin-bottom:2px">${x.e}</div>
-          <div style="font-size:7px;color:#4a6a8a;letter-spacing:0.5px;margin-bottom:3px">${x.l}</div>
-          <div style="font-size:11px;font-weight:800;color:${x.c}">${x.v}</div>
-        </div>`).join('')}
-      </div>
-
-      <!-- 진행도 -->
-      <div style="font-size:9px;color:#7a9abc;letter-spacing:2px;margin-bottom:6px">PROGRESS</div>
-      ${progressHTML}
-
-      <!-- 감정적 메시지 -->
-      <div style="font-size:13px;color:#7a9ab8;font-style:italic;margin-bottom:14px;
-        padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid #e05050">
-        "${deathMsg}"
-      </div>
-
-      <!-- 룬 & 아티팩트 -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:10px 8px">
-          <div style="font-size:9px;color:#5a7a9a;letter-spacing:1px;margin-bottom:6px">🔮 룬 (${gs.deck.length}장)</div>
-          ${deckPreview}
-        </div>
-        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:10px 8px">
-          <div style="font-size:9px;color:#5a7a9a;letter-spacing:1px;margin-bottom:6px">💎 아티팩트 (${gs.relics.length}개)</div>
-          ${relicPreview}
-        </div>
-      </div>
-
-      <!-- 시너지 -->
-      ${synHtml}
-
-      <!-- 획득 보상 -->
-      <div style="display:flex;gap:8px;justify-content:center;margin:12px 0;flex-wrap:wrap">
-        <span style="background:rgba(100,180,255,0.12);border:1px solid rgba(100,180,255,0.3);border-radius:100px;padding:5px 13px;font-size:12px;color:#7dd8ff">💎 +${earnedCoins} 젬</span>
-        <span style="background:rgba(240,192,80,0.08);border:1px solid rgba(240,192,80,0.25);border-radius:100px;padding:5px 13px;font-size:12px;color:#f0c050">🎖️ +${bpXpEarned} XP</span>
-      </div>
-
-      <!-- 버튼 -->
-      ${!gs._reviveUsed ? `
-      <button onclick="reviveBattle()"
-        style="width:100%;padding:14px;font-size:16px;font-weight:800;border:none;cursor:pointer;border-radius:12px;margin-bottom:8px;
-        font-family:'Noto Sans KR',sans-serif;background:linear-gradient(135deg,#5588ff,#3355cc);color:#fff;
-        box-shadow:0 3px 0 #1a2a88;text-shadow:0 1px 3px rgba(0,0,0,0.2)">
-        💫 부활 (1회)
-      </button>` : ''}
-      <div style="display:flex;gap:8px;margin-top:0px">
-        <button onclick="(()=>{const el=document.getElementById('_deathOverlay');if(el)el.remove();stopBattleTimers();if(battleAnimId){cancelAnimationFrame(battleAnimId);battleAnimId=null;}if(bt){bt.screenShake=0;bt.won=true;}gs.screen='startScreen';showAscensionSelector(()=>{audioCtx.resume();Audio.startBGM('map');startNewRun();});})()"
-          style="flex:2;padding:13px;font-size:15px;font-weight:800;border:none;cursor:pointer;border-radius:12px;
-          font-family:'Noto Sans KR',sans-serif;background:linear-gradient(135deg,#3dcc5a,#28a845);color:#fff;
-          box-shadow:0 3px 0 #1a7a32;text-shadow:0 1px 3px rgba(0,0,0,0.2)">
-          ▶ 다시 도전
-        </button>
-        <button onclick="goToLobby(document.getElementById('_deathOverlay'))"
-          style="flex:1;padding:13px;font-size:13px;font-weight:700;border:none;cursor:pointer;border-radius:12px;
-          font-family:'Noto Sans KR',sans-serif;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:#5a7a9a">
-          🏠 로비
-        </button>
-      </div>
-    </div>`;
 
   try {
+    const earnedCoins = earnMetaCoins();
+    const mm = String(Math.floor(gs.totalTime/60)).padStart(2,'0');
+    const ss = String(gs.totalTime%60).padStart(2,'0');
+
+    // 🔥 극도로 단순한 HTML - 모바일 호환성 최대화
+    const overlay = document.createElement('div');
+    overlay.id = '_deathOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;background:rgba(4,6,14,0.96);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.3s;';
+
+    overlay.innerHTML = `<div style="background:#0e1628;border:2px solid #1e3a5f;border-radius:16px;padding:20px;max-width:90%;text-align:center;color:#d8e4f0;">
+      <div style="font-size:48px;margin:10px 0">${gs.selectedChar.emoji}</div>
+      <div style="font-size:18px;font-weight:bold;color:#e05050;margin:10px 0">게임 끝남</div>
+      <div style="font-size:14px;margin:15px 0">
+        ACT ${gs.act} · ${mm}:${ss}<br>처치: ${gs.totalKills}
+      </div>
+      <div style="background:rgba(100,180,255,0.1);border-radius:8px;padding:10px;margin:15px 0;font-size:12px">
+        💎 +${earnedCoins} 젬
+      </div>
+      <div style="display:flex;gap:10px;margin:15px 0">
+        <button onclick="(()=>{const el=document.getElementById('_deathOverlay');if(el)el.remove();stopBattleTimers();if(battleAnimId){cancelAnimationFrame(battleAnimId);battleAnimId=null;}gs.screen='startScreen';showAscensionSelector(()=>{startNewRun();});})()" style="flex:1;padding:10px;background:#3dcc5a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold">다시 도전</button>
+        <button onclick="goToLobby(document.getElementById('_deathOverlay'))" style="flex:1;padding:10px;background:rgba(255,255,255,0.1);color:#5a7a9a;border:1px solid rgba(255,255,255,0.2);border-radius:8px;cursor:pointer">로비</button>
+      </div>
+    </div>`;
+
     document.body.appendChild(overlay);
-    // opacity 전환 (모바일에서도 정상 작동)
-    setTimeout(() => {
-      overlay.style.opacity = '1';
-    }, 50);
+    setTimeout(() => overlay.style.opacity = '1', 10);
   } catch(e) {
-    console.error('Failed to show game over overlay:', e);
+    console.error('showGameOver error:', e);
+    alert('게임 끝!');
   }
-  // setupMobileTooltips(); // 주석 처리: 모바일에서 게임오버 화면이 멈추는 버그 수정
-  try { Audio.stopBGM(1.0); } catch(e) { console.warn('stopBGM error:', e); }
+
+  try { Audio.stopBGM(1.0); } catch(e) {}
   [200,160,130].forEach((_,i)=>setTimeout(()=>Audio.sfx.playerHurt(),i*200));
 }
 
