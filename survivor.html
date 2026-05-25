@@ -2539,7 +2539,7 @@ function earnMetaCoins() {
   // 젬 보상: 처치수 × 0.2 + 보스처치 × 5 + ACT 보너스
   const gems = Math.max(1, Math.floor((gs.totalKills||0)*0.2) + (gs.bossesDefeated||0)*5 + ((gs.act||1)-1)*3);
   prem.gems = (prem.gems||0) + gems;
-  savePrem();
+  savePremium(); // 수정: savePrem → savePremium
   return gems;
 }
 
@@ -15620,7 +15620,13 @@ function showGameOver(won) {
   if (won) { showFinalVictory(); return; }
 
   try {
-    const earnedCoins = earnMetaCoins();
+    let earnedCoins = 0;
+    try {
+      earnedCoins = earnMetaCoins();
+    } catch(e) {
+      console.warn('earnMetaCoins error:', e);
+      earnedCoins = Math.max(1, Math.floor((gs.totalKills||0)*0.2) + (gs.bossesDefeated||0)*5 + ((gs.act||1)-1)*3);
+    }
     const mm = String(Math.floor(gs.totalTime/60)).padStart(2,'0');
     const ss = String(gs.totalTime%60).padStart(2,'0');
 
