@@ -16025,7 +16025,7 @@ gameCanvas.addEventListener('mouseleave', _hideTooltip);
 // 반응형 — 게임 캔버스는 화면 최대한 활용
 function resizeGame(){
   const vw=window.innerWidth, vh=window.innerHeight;
-  const isMobile = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+  const isMobile = navigator.maxTouchPoints > 0 || 'ontouchstart' in window || vw <= 768;  // 화면 크기도 고려
   const isPortrait = vw < vh;
 
   if (isMobile && isPortrait) {
