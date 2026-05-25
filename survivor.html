@@ -15679,7 +15679,8 @@ function showGameOver(won) {
 
   const overlay = document.createElement('div');
   overlay.id = '_deathOverlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;align-items:center;background:rgba(4,6,14,0.96);opacity:0;transition:opacity 0.5s;overflow-y:auto;padding:24px 0;';
+  // 모바일에서 overlay가 안 보이는 버그 수정: z-index와 display 강제 설정
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;background:rgba(4,6,14,0.96);opacity:0;transition:opacity 0.5s;overflow-y:auto;padding:24px 0;width:100vw;height:100vh;';
 
   overlay.innerHTML = `
     <div style="width:min(420px,96vw);padding:28px 24px 24px;background:linear-gradient(160deg,#0e1628 0%,#12203a 100%);
@@ -15782,8 +15783,15 @@ function showGameOver(won) {
       </div>
     </div>`;
 
-  document.body.appendChild(overlay);
-  requestAnimationFrame(() => overlay.style.opacity = '1');
+  try {
+    document.body.appendChild(overlay);
+    // opacity 전환 (모바일에서도 정상 작동)
+    setTimeout(() => {
+      overlay.style.opacity = '1';
+    }, 50);
+  } catch(e) {
+    console.error('Failed to show game over overlay:', e);
+  }
   // setupMobileTooltips(); // 주석 처리: 모바일에서 게임오버 화면이 멈추는 버그 수정
   try { Audio.stopBGM(1.0); } catch(e) { console.warn('stopBGM error:', e); }
   [200,160,130].forEach((_,i)=>setTimeout(()=>Audio.sfx.playerHurt(),i*200));
