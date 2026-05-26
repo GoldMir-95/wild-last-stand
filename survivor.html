@@ -7888,8 +7888,8 @@ function spawnEnemiesForWave() {
   const w = bt.wave, diff = bt.diffMult, act = gs.act;
 
   // 웨이브별 팁 메시지 (빈도 조정: 첫 웨이브 + 마지막 웨이브)
-  if (!bt._waveStartTipShown) {
-    bt._waveStartTipShown = true;
+  // 이미 표시한 웨이브가 아니면 메시지 표시
+  if ((bt._waveTipShown || {}).w !== w) {
     let tipKey, duration;
 
     // 웨이브별 다른 메시지 & 지속시간 차등 적용
@@ -7908,6 +7908,9 @@ function spawnEnemiesForWave() {
       const tip = getGameTip(tipKey);
       if (tip) setTimeout(() => showToast(tip, duration), 100);
     }
+
+    // 이 웨이브에 메시지를 표시했으므로 기록
+    bt._waveTipShown = { w };
   }
 
   // 화면 내 일반몹 수 상한 — 초과 시 스폰 스킵 (성능 보호)
