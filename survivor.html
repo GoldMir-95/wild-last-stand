@@ -7409,16 +7409,28 @@ function startBattle(isElite, isBoss) {
     }
     document.body.appendChild(ov);
 
-    // 화면 흔들림 시작
+    // 배경 어두워지기 오버레이 (집중도 향상)
+    const bgDarken = document.createElement('div');
+    bgDarken.style.cssText = `
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 398;
+      animation: bossIntroFadeIn 0.4s ease-out;
+      pointer-events: none;
+    `;
+    document.body.appendChild(bgDarken);
+
+    // 화면 흔들림 강화 (3단계 → 더 극적)
     const shakeStartTime = Date.now();
     const shakeInterval = setInterval(() => {
       const elapsed = Date.now() - shakeStartTime;
-      if (elapsed < 500) {
-        bt.screenShake = 12;  // 강한 흔들림 (처음 0.5초)
-      } else if (elapsed < 1000) {
-        bt.screenShake = 8;   // 중간 흔들림 (0.5~1초)
-      } else if (elapsed < 1500) {
-        bt.screenShake = 4;   // 약한 흔들림 (1~1.5초)
+      if (elapsed < 300) {
+        bt.screenShake = 16;  // 매우 강한 흔들림 (처음 0.3초) - 초기 충격 극대화
+      } else if (elapsed < 700) {
+        bt.screenShake = 10;  // 강한 흔들림 (0.3~0.7초)
+      } else if (elapsed < 1200) {
+        bt.screenShake = 5;   // 중간 흔들림 (0.7~1.2초)
       } else {
         bt.screenShake = 0;   // 정상
         clearInterval(shakeInterval);
@@ -7433,14 +7445,25 @@ function startBattle(isElite, isBoss) {
     }, 50);
     Audio.setBGMIntensity(1.4);
 
-    // 다단계 사운드 효과: 저음 → 중음 → 고음 → 보스 등장
+    // 다단계 음향 효과 강화: 저주파 배경음 → 3단계 톤 상승 → 메인 음향
     if (window.playSound) {
-      setTimeout(()=>{ playSound(80, 0.3, 'sine', 0.3); }, 100);  // 저음: 위협감
-      setTimeout(()=>{ playSound(120, 0.25, 'sine', 0.25); }, 250); // 중음: 긴장
-      setTimeout(()=>{ playSound(160, 0.2, 'sine', 0.2); }, 400);  // 고음: 절정
+      // 저주파 배경음 (심리음향으로 본능적 공포감)
+      setTimeout(()=>{ playSound(25, 0.1, 'sine', 0.02); }, 0);
+      // 1단계: 저음 위협감 (더 낮고 강하게)
+      setTimeout(()=>{ playSound(70, 0.4, 'sine', 0.4); }, 50);
+      // 2단계: 중음 긴장 감고
+      setTimeout(()=>{ playSound(100, 0.35, 'sine', 0.3); }, 150);
+      // 3단계: 고음 절정
+      setTimeout(()=>{ playSound(140, 0.3, 'sine', 0.25); }, 300);
     }
-    setTimeout(()=>{ Audio.sfx.bossAppear(); }, 550);  // 메인 음향 효과
-    setTimeout(()=>{ ov.style.opacity='0'; ov.style.transition='opacity 0.5s'; setTimeout(()=>ov.remove(), 500); }, 2600);
+    setTimeout(()=>{ Audio.sfx.bossAppear(); }, 500);  // 메인 음향 효과
+    setTimeout(()=>{
+      ov.style.opacity='0';
+      ov.style.transition='opacity 0.5s';
+      bgDarken.style.opacity='0';
+      bgDarken.style.transition='opacity 0.5s';
+      setTimeout(()=>{ ov.remove(); bgDarken.remove(); }, 500);
+    }, 2600);
     // 카운트다운은 인트로 후 시작
     setTimeout(startCountdown, 2000);
   } else {
