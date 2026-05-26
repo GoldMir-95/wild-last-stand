@@ -11062,11 +11062,34 @@ function damageEnemy(e,dmg,isMultiHit=false){
     e.kby = (e.kby||0) + (dy/dist)*kbForce;
   }
 
-  // ✅ [Phase 8] 파티클 스케줄러: 데미지 강도 + 적 타입별 주기 적용
+  // ✅ [Phase 8+] 파티클 스케줄러: 데미지 강도 + 적 타입별 주기 적용
   if(!isMultiHit){ // 다단히트는 파티클 스킵
     const particleCount = (bt.particles||[]).length;
-    // 동적 임계값: 적의 수에 따라 조절
-    const maxParticles = Math.max(50, 200 - bt.enemies.length*2); // 적 많으면 줄이기
+
+    // ✅ [Phase 9] 파티클 동적 제한 고도화: 게임 상황별 세밀한 조절
+    let maxParticles = 200;
+
+    // 1. 보스 전투 중이면 제한 강화
+    if(bt.enemies.some(en => en.isBoss)) {
+      maxParticles = 150; // 보스: 더 엄격한 제한
+    }
+
+    // 2. 적 개수에 따른 동적 조절
+    const enemyCount = bt.enemies.length;
+    if(enemyCount > 20) {
+      maxParticles = Math.max(50, maxParticles - (enemyCount - 20) * 3);
+    } else if(enemyCount > 10) {
+      maxParticles = Math.max(50, maxParticles - (enemyCount - 10) * 2);
+    }
+
+    // 3. 게임 진행 단계별 조절 (후반부일수록 더 엄격)
+    if(bt.wave >= 8) {
+      maxParticles = Math.max(50, maxParticles - 30); // 최종 웨이브: 추가 감소
+    } else if(bt.wave < 3) {
+      maxParticles = Math.min(maxParticles + 50, 300); // 초반: 시각 효과 강조
+    }
+
+    maxParticles = Math.max(50, maxParticles); // 최소 50 유지
 
     // ✅ [Phase 8] 파티클 생성 주기 결정:
     // - 크리틱: 매번 (hitCount 무관)
