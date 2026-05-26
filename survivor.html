@@ -11194,7 +11194,7 @@ function killEnemy(e){
     const comboKills = gs.player.kills - (bt._lastComboBreakKill || 0);
     if (comboKills === 5 || comboKills === 8 || comboKills === 10) {
       const tip = getGameTip('combo_' + comboKills);
-      if (tip) showToast(tip, 1200);
+      if (tip) showToast(tip, 1000);  // Phase 2: 1200ms → 1000ms (더 빠른 피드백)
     }
   }
   // 💀 정예 침입 이벤트 적 처치 보너스
@@ -15203,7 +15203,7 @@ function showCardSelection(onDone, opts) {
           const firstSyn = newSyns[0];
           const synergyTip = getGameTip('synergy_' + firstSyn.id);
           if (synergyTip) {
-            setTimeout(() => showToast(synergyTip, 1800), 700);
+            setTimeout(() => showToast(synergyTip, 1500), 700);  // Phase 2: 1800ms → 1500ms
           }
         }
         // 강력한 빌드 격려 메시지 (1초 뒤 표시)
