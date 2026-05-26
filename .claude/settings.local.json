@@ -29,7 +29,10 @@
       "Bash(git commit -m 'isMobile 판정 수정: 화면 크기 기준 추가 \\(768px\\) *)",
       "Bash(git commit *)",
       "Bash(dir -Recurse -Include \"*.js\", \"*.html\", \"*.css\")",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(git -C \"C:\\\\Users\\\\hyeonjiph\\\\Desktop\\\\my-game\\\\SURVIVOR\" diff survivor.html)",
+      "Bash(git -C \"C:\\\\Users\\\\hyeonjiph\\\\Desktop\\\\my-game\\\\SURVIVOR\" add survivor.html)",
+      "Bash(git -C 'C:\\\\Users\\\\hyeonjiph\\\\Desktop\\\\my-game\\\\SURVIVOR' commit -m ' *)"
     ]
   }
 }
