@@ -10761,10 +10761,10 @@ function updateBattle() {
       }
     }
 
-    // 사운드는 1초(60프레임)마다 1회만 (아주 드물게)
+    // ✅ [Phase 8] 사운드는 0.5초(30프레임)마다 1회 (더 자연스러움)
     if(swordHit && !bt._swordSoundCooldown){
       Audio.sfx.sword();
-      bt._swordSoundCooldown = 60;
+      bt._swordSoundCooldown = 30; // 60→30: 더 자주 재생
     }
     if(bt._swordSoundCooldown) bt._swordSoundCooldown--;
   }
@@ -11037,7 +11037,7 @@ function damageEnemy(e,dmg,isMultiHit=false){
 
   // ✅ [Phase 5] 히트스톱 클램핑 (누적 방지)
   bt.hitstop = Math.max(bt.hitstop||0, isCrit ? 4 : 2);
-  if(bt.hitstop > 10) bt.hitstop = 10; // 최대값 클램핑
+  if(bt.hitstop > 8) bt.hitstop = 8; // ✅ [Phase 8] 최대값 10→8 단축 (133ms 유지)
 
   // ✅ [Phase 5] 넉백 계산 최적화: 급한 경우만 계산
   if(!e.isBoss && !isMultiHit){ // 다단히트는 넉백 스킵
@@ -11085,8 +11085,8 @@ function damageEnemy(e,dmg,isMultiHit=false){
   if(isMultiHit){
     if(Math.random() < 0.05) { if(isCrit) Audio.sfx.hitCrit(); else Audio.sfx.hit(); }
   } else {
-    // 일반 공격은 음향 쿨타임 추가 (연속 히트 시 스팸 방지)
-    if(!bt._lastHitSoundTime || Date.now() - bt._lastHitSoundTime > 50){
+    // ✅ [Phase 8] 일반 공격 음향 쿨타임 증가 (50→80ms, 스팸 방지)
+    if(!bt._lastHitSoundTime || Date.now() - bt._lastHitSoundTime > 80){
       if(isCrit) Audio.sfx.hitCrit(); else Audio.sfx.hit();
       bt._lastHitSoundTime = Date.now();
     }
