@@ -6588,8 +6588,8 @@ function startBattle(isElite, isBoss) {
   if (battleAnimId) cancelAnimationFrame(battleAnimId);
   requestAnimationFrame(battleLoop);
 
-  // 전투 시작 카운트다운 — 카운트다운이 끝난 후에 타이머 시작
-  bt.paused = true;
+  // 전투 시작 카운트다운 — 게임은 렌더링되고 카운트다운 후에 시작
+  bt.countdownActive = true;  // 일시정지 대신 카운트다운 플래그 사용
 
   // ── 보스 전용 드라마틱 인트로 ──
   if (isBoss) {
@@ -6655,7 +6655,7 @@ function startBattle(isElite, isBoss) {
         countdown--;
       } else {
         clearInterval(cdInterval);
-        bt.paused = false;
+        bt.countdownActive = false;  // 카운트다운 종료 → 게임 시작
         showWaveNotif(isBoss ? '👑 FIGHT!' : '⚔️ START!', '');
         Audio.sfx.waveComplete();
         startBattleTimers(isElite, isBoss);
@@ -8334,7 +8334,7 @@ function battleLoop() {
       // 일시정지 아님: 정상 게임 플레이
       _pauseRenderCache = null; // 캐시 초기화
 
-      if (bt && !bt.won) {
+      if (bt && !bt.won && !bt.countdownActive) {  // 카운트다운 중에는 게임 로직 업데이트 안 함
         // 📱 모바일 입력 적용
         _applyMobileInput();
 
@@ -15649,6 +15649,10 @@ function showGameOver(won) {
     overlay.id = '_deathOverlay';
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;background:rgba(4,6,14,0.96);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.3s;overflow-y:auto;padding:20px 0;';
 
+    // 마무리 멘트
+    const _dPool = ['아깝다...', '다음엔 더 잘할 거야', '너무 강했어...', '운이 없었나봐', '아직 멀었구나', '재도전할 자신감이 있나?', '최선을 다했어', '쉽지 않네', '다시 해보자', '이번엔 더 준비하고'];
+    const deathMsg = _dPool[Math.floor(Math.random() * _dPool.length)];
+
     overlay.innerHTML = `<div style="background:#0e1628;border:2px solid #1e3a5f;border-radius:16px;padding:20px;max-width:90%;text-align:center;color:#d8e4f0;margin:auto;">
       <div style="font-size:48px;margin:10px 0">${gs.selectedChar.emoji}</div>
       <div style="font-size:14px;color:#e05050;margin:5px 0">게임 끝남</div>
@@ -15670,6 +15674,11 @@ function showGameOver(won) {
         <div>💥 준 피해: ${gs._totalDmgDealt>999?`${(gs._totalDmgDealt/1000).toFixed(1)}k`:Math.round(gs._totalDmgDealt||0)}</div>
         <div>💔 받은 피해: ${(gs._totalDmgTaken||0)>999?`${((gs._totalDmgTaken||0)/1000).toFixed(1)}k`:Math.round(gs._totalDmgTaken||0)}</div>
         <div>🔥 최고 콤보: ${gs._maxCombo||0}킬</div>
+      </div>
+
+      <!-- 마무리 멘트 -->
+      <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:10px;margin:10px 0;font-size:12px;color:#7a9ab8;font-style:italic;border-left:3px solid #e05050">
+        "${deathMsg}"
       </div>
 
       <!-- 보상 -->
