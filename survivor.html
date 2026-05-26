@@ -10725,25 +10725,35 @@ function updateBattle() {
 
   // 회전 검
   if(s.sword>0){
-    // ✅ [Phase 5 극한 최적화] 회전검 성능 대폭 개선
+    // ✅ [Phase 8 개선] 회전검 최적화: 검 위치 캐싱으로 O(E×S) 루프 효율화
     // 광전사 시너지: 회전 속도 2배, 데미지 추가
     const _swordRotSpd = s._synBerserkerBlade ? 0.055*2 : 0.055;
     bt.swordAngle+=_swordRotSpd;
 
-    // 먼저 적들의 거리를 한 번만 계산
+    // ✅ [Phase 8] 검 위치 미리 계산 (이번 프레임에 한 번만)
+    // O(S)에서 검 위치를 모두 계산해두고, O(E×S) 루프에서 재사용
     const swordR2=(18)*(18); // 미리 제곱 계산
+    const _swordPos = [];
+    for(let sv=0;sv<s.sword;sv++){
+      const angle=bt.swordAngle+(sv/s.sword)*Math.PI*2;
+      _swordPos.push({
+        x: p.x+Math.cos(angle)*55,
+        y: p.y+Math.sin(angle)*55
+      });
+    }
+
     let swordHit=false;
     const hitEnemies = new Set();
 
+    // ✅ [Phase 8] 적별로 캐시된 검 위치와 비교 (성능 개선)
     for(let j=bt.enemies.length-1;j>=0;j--){
       const e=bt.enemies[j];
       let hitCount=0;
 
-      // 이 적이 몇 개 검과 충돌하는지 확인
-      for(let sv=0;sv<s.sword;sv++){
-        const angle=bt.swordAngle+(sv/s.sword)*Math.PI*2;
-        const sx=p.x+Math.cos(angle)*55,sy=p.y+Math.sin(angle)*55;
-        const sdx=sx-e.x,sdy=sy-e.y;
+      // 이 적이 몇 개 검과 충돌하는지 확인 (캐시된 위치 사용)
+      for(let sv=0;sv<_swordPos.length;sv++){
+        const sp=_swordPos[sv];
+        const sdx=sp.x-e.x,sdy=sp.y-e.y;
         if(sdx*sdx+sdy*sdy<swordR2){
           hitCount++;
           if(hitCount===1) hitEnemies.add(e); // 첫 충돌만 기록
