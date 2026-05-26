@@ -15626,29 +15626,61 @@ function showGameOver(won) {
 
   try {
     // 메타 코인 저장 (별도로 try/catch - 실패해도 게임오버 화면은 표시)
-    try { earnMetaCoins(); } catch(e) { console.warn('earnMetaCoins failed:', e); }
+    let earnedCoins = 0;
+    try {
+      earnedCoins = earnMetaCoins();
+    } catch(e) {
+      console.warn('earnMetaCoins failed:', e);
+      earnedCoins = Math.max(1, Math.floor((gs.totalKills||0)*0.2) + (gs.bossesDefeated||0)*5 + ((gs.act||1)-1)*3);
+    }
 
     const mm = String(Math.floor(gs.totalTime/60)).padStart(2,'0');
     const ss = String(gs.totalTime%60).padStart(2,'0');
-    const earnedCoins = Math.max(1, Math.floor((gs.totalKills||0)*0.2) + (gs.bossesDefeated||0)*5 + ((gs.act||1)-1)*3);
 
-    // 🔥 극도로 단순한 HTML - 모바일 호환성 최대화
+    // 등급 계산
+    const killScore = gs.totalKills;
+    const actScore = (gs.act - 1) * 100 + gs.currentLayer * 10;
+    const totalScore = killScore + actScore + gs.bossesDefeated * 50;
+    const grade = totalScore >= 400 ? 'S' : totalScore >= 250 ? 'A' : totalScore >= 120 ? 'B' : totalScore >= 50 ? 'C' : 'D';
+    const gradeColor = {S:'#f0c050',A:'#9b6ee8',B:'#4a9eff',C:'#4ecf7a',D:'#8aa0b8'}[grade];
+
+    // 🔥 간단하지만 정보 포함된 HTML
     const overlay = document.createElement('div');
     overlay.id = '_deathOverlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;background:rgba(4,6,14,0.96);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.3s;';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;background:rgba(4,6,14,0.96);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.3s;overflow-y:auto;padding:20px 0;';
 
-    overlay.innerHTML = `<div style="background:#0e1628;border:2px solid #1e3a5f;border-radius:16px;padding:20px;max-width:90%;text-align:center;color:#d8e4f0;">
+    overlay.innerHTML = `<div style="background:#0e1628;border:2px solid #1e3a5f;border-radius:16px;padding:20px;max-width:90%;text-align:center;color:#d8e4f0;margin:auto;">
       <div style="font-size:48px;margin:10px 0">${gs.selectedChar.emoji}</div>
-      <div style="font-size:18px;font-weight:bold;color:#e05050;margin:10px 0">게임 끝남</div>
-      <div style="font-size:14px;margin:15px 0">
-        ACT ${gs.act} · ${mm}:${ss}<br>처치: ${gs.totalKills}
+      <div style="font-size:14px;color:#e05050;margin:5px 0">게임 끝남</div>
+
+      <!-- 등급 & 핵심 정보 -->
+      <div style="display:flex;align-items:center;gap:10px;margin:15px 0;justify-content:center">
+        <div style="width:50px;height:50px;border-radius:8px;background:${gradeColor}18;border:2px solid ${gradeColor};display:flex;align-items:center;justify-content:center;flex-direction:column">
+          <div style="font-size:24px;font-weight:bold;color:${gradeColor}">${grade}</div>
+          <div style="font-size:8px;color:${gradeColor}">등급</div>
+        </div>
+        <div style="flex:1;font-size:12px;text-align:left">
+          <div>ACT ${gs.act} · ${mm}:${ss}</div>
+          <div>처치: ${gs.totalKills} | 보스: ${gs.bossesDefeated}</div>
+        </div>
       </div>
-      <div style="background:rgba(100,180,255,0.1);border-radius:8px;padding:10px;margin:15px 0;font-size:12px">
+
+      <!-- 통계 (간단히) -->
+      <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:10px;margin:10px 0;font-size:11px">
+        <div>💥 준 피해: ${gs._totalDmgDealt>999?`${(gs._totalDmgDealt/1000).toFixed(1)}k`:Math.round(gs._totalDmgDealt||0)}</div>
+        <div>💔 받은 피해: ${(gs._totalDmgTaken||0)>999?`${((gs._totalDmgTaken||0)/1000).toFixed(1)}k`:Math.round(gs._totalDmgTaken||0)}</div>
+        <div>🔥 최고 콤보: ${gs._maxCombo||0}킬</div>
+      </div>
+
+      <!-- 보상 -->
+      <div style="background:rgba(100,180,255,0.1);border-radius:8px;padding:10px;margin:10px 0;font-size:12px">
         💎 +${earnedCoins} 젬
       </div>
+
+      <!-- 버튼 -->
       <div style="display:flex;gap:10px;margin:15px 0">
-        <button onclick="(()=>{const el=document.getElementById('_deathOverlay');if(el)el.remove();stopBattleTimers();if(battleAnimId){cancelAnimationFrame(battleAnimId);battleAnimId=null;}gs.screen='startScreen';showAscensionSelector(()=>{startNewRun();});})()" style="flex:1;padding:10px;background:#3dcc5a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold">다시 도전</button>
-        <button onclick="goToLobby(document.getElementById('_deathOverlay'))" style="flex:1;padding:10px;background:rgba(255,255,255,0.1);color:#5a7a9a;border:1px solid rgba(255,255,255,0.2);border-radius:8px;cursor:pointer">로비</button>
+        <button onclick="(()=>{const el=document.getElementById('_deathOverlay');if(el)el.remove();stopBattleTimers();if(battleAnimId){cancelAnimationFrame(battleAnimId);battleAnimId=null;}gs.screen='startScreen';showAscensionSelector(()=>{startNewRun();});})()" style="flex:1;padding:12px;background:#3dcc5a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px">다시 도전</button>
+        <button onclick="goToLobby(document.getElementById('_deathOverlay'))" style="flex:1;padding:12px;background:rgba(255,255,255,0.1);color:#5a7a9a;border:1px solid rgba(255,255,255,0.2);border-radius:8px;cursor:pointer;font-size:14px">로비</button>
       </div>
     </div>`;
 
