@@ -3379,19 +3379,7 @@ function updateGrowthBar() {
   // 카드 행
   const cardRow = document.getElementById('gbCardRow');
   if (cardRow) {
-    const labelSpan = document.createElement('span');
-    labelSpan.className = 'gb-label';
-    labelSpan.textContent = '축복';
-    labelSpan.style.cursor = 'pointer';
-    labelSpan.style.transition = 'all 0.2s';
-    labelSpan.title = '클릭해서 축복 목록 보기';
-    labelSpan.onmouseenter = () => { labelSpan.style.color = '#c9a8ff'; };
-    labelSpan.onmouseleave = () => { labelSpan.style.color = 'inherit'; };
-    labelSpan.onclick = () => showBlessingPanel();
-
-    cardRow.innerHTML = '';
-    cardRow.appendChild(labelSpan);
-
+    cardRow.innerHTML = '<span class="gb-label">축복</span>';
     if (gs.deck && gs.deck.length > 0) {
       // 중복 카드 집계
       const cardCount = {};
@@ -3399,13 +3387,8 @@ function updateGrowthBar() {
       Object.values(cardCount).forEach(({c, n}) => {
         const chip = document.createElement('span');
         chip.className = 'gb-chip' + (c._upgraded ? ' upgraded' : '');
-        chip.style.cursor = 'pointer';
+        chip.title = c.name + (c._upgraded ? ' (강화됨)' : '');
         chip.textContent = c.emoji + (n > 1 ? ` ×${n}` : '') + (c._upgraded ? '⬆' : '');
-
-        // 상세 Tooltip
-        chip.onmouseenter = () => showBlessingTooltip(chip, c, n);
-        chip.onmouseleave = () => hideBlessingTooltip();
-
         cardRow.appendChild(chip);
       });
     } else {
@@ -4380,79 +4363,62 @@ function showStoreOverlay() {
   ov.innerHTML = `<div class="lb-ov-inner" style="max-height:88vh;overflow-y:auto">
     <div class="lb-ov-head"><span>💰 상점</span><button id="_stClose" class="lb-ov-back">✕</button></div>
 
-    ${_IAP_TEST_MODE?'<div style="font-size:10px;color:#4a9eff;text-align:center;padding:6px;background:rgba(74,158,255,0.1);border-radius:6px;margin:8px 14px 12px;opacity:0.9">🛠 개발 테스트 모드 — 실제 결제 없음</div>':''}
+    ${_IAP_TEST_MODE?'<div style="font-size:10px;color:#4a9eff;text-align:center;padding:4px 0 10px;opacity:0.8">🛠 개발 테스트 모드 — 실제 결제 없음</div>':''}
 
-    <!-- ✅ 에너지 섹션 (개선) -->
-    <div class="store-sec">⚡ 에너지 충전</div>
-    <div style="padding:0 14px;margin-bottom:16px">
-      <div style="background:linear-gradient(90deg,#1a2540,#0e1628);border:1px solid #4a9eff;border-radius:12px;padding:12px;margin-bottom:10px;text-align:center">
-        <div style="font-size:28px;font-weight:bold;color:#4a9eff">${prem.energy}/${MAX_ENERGY}</div>
-        <div style="font-size:11px;color:#888;margin-top:4px">현재 에너지</div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <button onclick="window._watchAd&&window._watchAd()" style="padding:12px;border-radius:10px;border:1px solid ${adAvail?'#4ecf7a':'#333'};background:${adAvail?'rgba(78,207,122,0.15)':'#1a1a2e'};color:${adAvail?'#4ecf7a':'#555'};cursor:${adAvail?'pointer':'default'};font-weight:600;transition:0.2s" title="${adAvail?'1일 1회 광고 시청 가능':'이미 시청함'}">
-          📺 광고<br><small style="font-weight:400">+1</small>
-        </button>
-        <button onclick="window._buyEnergy&&window._buyEnergy()" style="padding:12px;border-radius:10px;border:1px solid #4a9eff;background:rgba(74,158,255,0.15);color:#4a9eff;cursor:pointer;font-weight:600;transition:0.2s">
-          💎 30<br><small style="font-weight:400">즉시 충전</small>
-        </button>
-      </div>
+    <div class="store-sec">⚡ 에너지 (${prem.energy}/${MAX_ENERGY})</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <button onclick="window._watchAd&&window._watchAd()" style="flex:1;padding:10px;border-radius:10px;border:1px solid ${adAvail?'#4ecf7a':'#444'};background:${adAvail?'rgba(78,207,122,0.1)':'#1a1a2e'};color:${adAvail?'#4ecf7a':'#555'};cursor:${adAvail?'pointer':'default'}">
+        📺 광고 보기<br><small>에너지 +1 (1일 1회)</small>
+      </button>
+      <button onclick="window._buyEnergy&&window._buyEnergy()" style="flex:1;padding:10px;border-radius:10px;border:1px solid #4a9eff;background:rgba(74,158,255,0.1);color:#4a9eff;cursor:pointer">
+        💎 30<br><small>에너지 즉시 충전</small>
+      </button>
     </div>
 
-    <!-- ✅ 구독 패스 섹션 (개선) -->
     <div class="store-sec">🗓️ 구독 패스</div>
-    <div style="padding:0 14px;margin-bottom:16px;display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
       ${SUBSCRIPTION_PRODUCTS.map(sp=>{
         const owned = sp.id==='sub_weekly'?hasWeekly:hasMonthly;
         return `<div onclick="${owned?'':'window._buySub&&window._buySub(\''+sp.id+'\')'}"
-          style="background:linear-gradient(135deg,${sp.id==='sub_monthly'?'#2a1f0f':'#0f1a2a'},#0e0e1a);border:2px solid ${sp.id==='sub_monthly'?'#f0c050':'#4a9eff'};
-            border-radius:12px;padding:14px;cursor:${owned?'default':'pointer'};
-            display:flex;align-items:center;gap:12px;transition:all 0.2s">
-          <div style="font-size:32px">${sp.emoji}</div>
+          style="background:linear-gradient(135deg,#1a2540,#0e1628);border:1px solid ${sp.id==='sub_monthly'?'#f0c050':'#4a9eff'};
+            border-radius:12px;padding:12px 14px;cursor:${owned?'default':'pointer'};
+            display:flex;align-items:center;gap:12px;transition:opacity 0.15s">
+          <div style="font-size:28px">${sp.emoji}</div>
           <div style="flex:1">
-            <div style="font-size:14px;font-weight:700;color:${sp.id==='sub_monthly'?'#f0c050':'#a0c8ff'}">${sp.name}</div>
-            <div style="font-size:11px;color:#888;margin-top:2px">${sp.desc}</div>
+            <div style="font-size:13px;font-weight:700;color:${sp.id==='sub_monthly'?'#f0c050':'#a0c8ff'}">${sp.name}</div>
+            <div style="font-size:11px;color:#778;margin-top:2px">${sp.desc}</div>
           </div>
-          <div style="text-align:right;white-space:nowrap">
+          <div style="text-align:right">
             ${owned
               ? `<div style="color:#4ecf7a;font-size:12px;font-weight:700">✓ 구독 중</div>`
-              : `<div style="font-size:15px;font-weight:800;color:#f0f4ff">${sp.price}</div><div style="font-size:10px;color:#888">/기간</div>`}
+              : `<div style="font-size:14px;font-weight:800;color:#f0f4ff">${sp.price}</div><div style="font-size:10px;color:#778">/기간</div>`}
           </div>
         </div>`;
       }).join('')}
     </div>
 
-    <!-- ✅ 젬 패키지 섹션 (개선) -->
     <div class="store-sec">💎 젬 패키지</div>
-    <div style="padding:0 14px;margin-bottom:16px">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div onclick="window._buyGems&&window._buyGems(80,'₩1,200')" style="background:linear-gradient(135deg,#1a2540,#0e1628);border:1px solid #4a9eff;border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:0.2s">
-          <div style="font-size:24px">💎</div><div style="font-size:16px;font-weight:bold;color:#a0c8ff">80</div><div style="color:#4a9eff;font-size:11px">₩1,200</div>
-        </div>
-        <div onclick="window._buyGems&&window._buyGems(250,'₩3,300')" style="background:linear-gradient(135deg,#1a2a1a,#0e1a0e);border:1px solid #4ecf7a;border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:0.2s">
-          <div style="font-size:24px">💎💎</div><div style="font-size:16px;font-weight:bold;color:#80d880">250</div><div style="color:#4ecf7a;font-size:11px">₩3,300</div>
-        </div>
-        <div onclick="window._buyGems&&window._buyGems(560,'₩6,600')" style="background:linear-gradient(135deg,#1f1a2a,#150f20);border:1px solid #9b6ee8;border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:0.2s">
-          <div style="font-size:24px">💎💎💎</div><div style="font-size:16px;font-weight:bold;color:#c0a0ff">560</div><div style="color:#9b6ee8;font-size:11px">₩6,600</div>
-        </div>
-        <div onclick="window._buyGems&&window._buyGems(1200,'₩12,000')" style="background:linear-gradient(135deg,#2a2010,#1a1505);border:2px solid #f0c050;border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:0.2s;position:relative;overflow:hidden">
-          <div style="position:absolute;top:-6px;right:4px;background:linear-gradient(135deg,#f0c050,#ffd080);color:#0e1628;font-size:9px;font-weight:800;border-radius:4px;padding:2px 8px">⭐ BEST</div>
-          <div style="font-size:26px;margin-top:4px">✨💎✨</div><div style="font-size:16px;font-weight:bold;color:#f0d050">1,200</div><div style="color:#f0c050;font-size:11px">₩12,000</div>
-        </div>
+    <div class="store-pkg-grid" style="margin-bottom:14px">
+      <div onclick="window._buyGems&&window._buyGems(80,'₩1,200')" style="background:#1a2540;border:1px solid #4a9eff;border-radius:12px;padding:14px;text-align:center;cursor:pointer">
+        <div style="font-size:22px">💎</div><div style="font-size:16px;font-weight:bold">80</div><div style="color:#4a9eff;font-size:12px">₩1,200</div>
+      </div>
+      <div onclick="window._buyGems&&window._buyGems(250,'₩3,300')" style="background:#1a2540;border:1px solid #4ecf7a;border-radius:12px;padding:14px;text-align:center;cursor:pointer">
+        <div style="font-size:22px">💎💎</div><div style="font-size:16px;font-weight:bold">250</div><div style="color:#4ecf7a;font-size:12px">₩3,300</div>
+      </div>
+      <div onclick="window._buyGems&&window._buyGems(560,'₩6,600')" style="background:#1a2540;border:1px solid #9b6ee8;border-radius:12px;padding:14px;text-align:center;cursor:pointer">
+        <div style="font-size:22px">💎💎💎</div><div style="font-size:16px;font-weight:bold">560</div><div style="color:#9b6ee8;font-size:12px">₩6,600</div>
+      </div>
+      <div onclick="window._buyGems&&window._buyGems(1200,'₩12,000')" style="background:#1a2540;border:1.5px solid #f0c050;border-radius:12px;padding:14px;text-align:center;cursor:pointer;position:relative">
+        <div style="position:absolute;top:-8px;right:6px;background:#f0c050;color:#0e1628;font-size:9px;font-weight:800;border-radius:4px;padding:1px 6px">BEST</div>
+        <div style="font-size:22px">✨💎✨</div><div style="font-size:16px;font-weight:bold">1,200</div><div style="color:#f0c050;font-size:12px">₩12,000</div>
       </div>
     </div>
 
-    <!-- ✅ 배틀 패스 섹션 (개선) -->
     <div class="store-sec">🎖️ 배틀 패스</div>
-    <div style="padding:0 14px;margin-bottom:14px">
-      <div onclick="showBattlePassOverlay()" style="background:linear-gradient(135deg,#2a1f0f,#1a0f20);border:2px solid #f0c050;border-radius:12px;padding:14px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:all 0.2s">
-        <div style="font-size:36px">🎖️</div>
-        <div style="flex:1">
-          <div style="font-weight:bold;color:#f0c050;font-size:14px">프리미엄 배틀 패스</div>
-          <div style="font-size:11px;color:#aaa;margin-top:2px">Lv.${prem.bpLevel}/30 · 전설 장비 + 💎</div>
-        </div>
-        <div style="background:${prem.bpPremium?'rgba(78,207,122,0.2)':'#f0c050'};color:${prem.bpPremium?'#4ecf7a':'#0e1628'};border-radius:8px;padding:6px 10px;font-size:11px;font-weight:bold;border:${prem.bpPremium?'1px solid #4ecf7a':'none'};white-space:nowrap">${prem.bpPremium?'✓ 소유':'₩7,900'}</div>
-      </div>
+    <div onclick="showBattlePassOverlay()" style="background:linear-gradient(135deg,#1a2540,#2a1540);border:1px solid #f0c050;border-radius:12px;padding:14px;cursor:pointer;display:flex;align-items:center;gap:14px">
+      <div style="font-size:36px">🎖️</div>
+      <div><div style="font-weight:bold;color:#f0c050">프리미엄 배틀 패스</div><div style="font-size:11px;color:#aaa;margin-top:2px">Lv.${prem.bpLevel}/30 · 전설 장비 + 💎 대량 획득</div></div>
+      <div style="margin-left:auto;background:${prem.bpPremium?'rgba(78,207,122,0.15)':'#f0c050'};color:${prem.bpPremium?'#4ecf7a':'#0e1628'};border-radius:8px;padding:6px 12px;font-size:12px;font-weight:bold;border:${prem.bpPremium?'1px solid #4ecf7a':'none'}">${prem.bpPremium?'✓ 소유 중':'₩7,900'}</div>
     </div>
   </div>`;
 
@@ -4518,15 +4484,7 @@ function showStoreOverlay() {
 
   ov._doClose = _pushBack(() => { if (ov.isConnected) { ov.remove(); window._lobbyRender && window._lobbyRender(); } });
   document.body.appendChild(ov);
-  // ✅ X 버튼 클릭 핸들러 고정 (배틀 패스와 동일)
-  const stCloseBtn = ov.querySelector('#_stClose');
-  if(stCloseBtn) {
-    stCloseBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      ov.remove();
-      window._lobbyRender && window._lobbyRender();
-    });
-  }
+  ov.querySelector('#_stClose').addEventListener('click', () => { history.back(); ov._doClose(); });
 }
 
 function showBattlePassOverlay() {
@@ -4592,14 +4550,7 @@ function showBattlePassOverlay() {
   render();
   ov._doClose = _pushBack(() => { if (ov.isConnected) ov.remove(); });
   document.body.appendChild(ov);
-  // ✅ X 버튼 클릭 핸들러 고정
-  const bpCloseBtn = ov.querySelector('#_bpClose');
-  if(bpCloseBtn) {
-    bpCloseBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      ov.remove();
-    });
-  }
+  ov.querySelector('#_bpClose').addEventListener('click', () => { history.back(); ov._doClose(); });
 }
 
 function showTraitOverlay() {
@@ -7018,174 +6969,6 @@ function showSettingsOverlay() {
   document.body.appendChild(ov);
 }
 
-// ─── 축복 Tooltip ───
-function showBlessingTooltip(el, card, count) {
-  const old = document.getElementById('_blessingTooltip');
-  if (old) old.remove();
-
-  const tooltip = document.createElement('div');
-  tooltip.id = '_blessingTooltip';
-  tooltip.style.cssText = `
-    position: fixed;
-    background: rgba(20, 30, 50, 0.95);
-    border: 2px solid #9b6ee8;
-    border-radius: 8px;
-    padding: 12px 14px;
-    font-family: 'Jua', sans-serif;
-    font-size: 12px;
-    color: #d8e4f0;
-    z-index: 1000;
-    pointer-events: none;
-    box-shadow: 0 4px 20px rgba(155, 110, 232, 0.4);
-    max-width: 200px;
-    line-height: 1.5;
-  `;
-
-  tooltip.innerHTML = `
-    <div style="font-weight: bold; font-size: 13px; color: #c9a8ff; margin-bottom: 6px;">
-      ${card.emoji} ${card.name} ${card._upgraded ? '⬆️ (강화됨)' : ''}
-      ${count > 1 ? `<span style="color: #88ccff;"> ×${count}개</span>` : ''}
-    </div>
-    <div style="color: #a0b8d0; font-size: 11px; line-height: 1.5;">
-      ${card.desc || '설명 없음'}
-    </div>
-  `;
-
-  document.body.appendChild(tooltip);
-
-  const rect = el.getBoundingClientRect();
-  tooltip.style.left = Math.min(rect.right + 8, window.innerWidth - 220) + 'px';
-  tooltip.style.top = (rect.top - 4) + 'px';
-}
-
-function hideBlessingTooltip() {
-  const tooltip = document.getElementById('_blessingTooltip');
-  if (tooltip) tooltip.remove();
-}
-
-// ─── 축복 패널 (언제 어디서든 확인 가능) ───
-function showBlessingPanel() {
-  const old = document.getElementById('_blessingPanel');
-  if (old) old.remove();
-
-  const panel = document.createElement('div');
-  panel.id = '_blessingPanel';
-  panel.style.cssText = `
-    position: fixed;
-    inset: 0;
-    z-index: 600;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(5, 8, 18, 0.92);
-    backdrop-filter: blur(4px);
-  `;
-
-  const content = document.createElement('div');
-  content.style.cssText = `
-    background: linear-gradient(135deg, rgba(30, 50, 80, 0.9) 0%, rgba(15, 25, 45, 0.95) 100%);
-    border: 2px solid #9b6ee8;
-    border-radius: 16px;
-    padding: 28px;
-    max-width: 500px;
-    max-height: 85vh;
-    overflow-y: auto;
-    font-family: 'Jua', sans-serif;
-    color: #d8e4f0;
-  `;
-
-  // 제목
-  const title = document.createElement('div');
-  title.style.cssText = 'font-size: 24px; font-weight: bold; color: #c9a8ff; margin-bottom: 20px; text-align: center;';
-  title.textContent = '📖 보유 축복 목록';
-  content.appendChild(title);
-
-  // 축복 목록
-  if (gs.deck && gs.deck.length > 0) {
-    const cardCount = {};
-    gs.deck.forEach(c => { cardCount[c.id] = cardCount[c.id] || {c, n:0}; cardCount[c.id].n++; });
-
-    Object.values(cardCount).forEach(({c, n}) => {
-      const item = document.createElement('div');
-      item.style.cssText = `
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(155, 110, 232, 0.3);
-        border-radius: 8px;
-        padding: 12px 14px;
-        margin-bottom: 10px;
-        transition: all 0.2s;
-      `;
-
-      item.onmouseenter = () => item.style.background = 'rgba(155, 110, 232, 0.15)';
-      item.onmouseleave = () => item.style.background = 'rgba(255, 255, 255, 0.05)';
-
-      item.innerHTML = `
-        <div style="display: flex; align-items: flex-start; gap: 12px;">
-          <div style="font-size: 28px; flex-shrink: 0;">
-            ${c.emoji}${c._upgraded ? '⬆️' : ''}
-          </div>
-          <div style="flex: 1;">
-            <div style="font-weight: bold; font-size: 13px; color: #c9a8ff; margin-bottom: 4px;">
-              ${c.name} ${n > 1 ? `<span style="color: #88ccff;">×${n}</span>` : ''}
-            </div>
-            <div style="font-size: 11px; color: #a0b8d0; line-height: 1.5;">
-              ${c.desc || '설명 없음'}
-            </div>
-          </div>
-        </div>
-      `;
-
-      content.appendChild(item);
-    });
-  } else {
-    const empty = document.createElement('div');
-    empty.style.cssText = 'text-align: center; color: #5a7a9a; font-size: 12px;';
-    empty.textContent = '아직 보유한 축복이 없습니다.';
-    content.appendChild(empty);
-  }
-
-  // 닫기 버튼
-  const closeBtn = document.createElement('button');
-  closeBtn.style.cssText = `
-    width: 100%;
-    padding: 12px;
-    margin-top: 20px;
-    background: rgba(155, 110, 232, 0.2);
-    border: 1px solid rgba(155, 110, 232, 0.5);
-    border-radius: 8px;
-    color: #c9a8ff;
-    font-weight: bold;
-    cursor: pointer;
-    font-family: 'Jua', sans-serif;
-    transition: all 0.2s;
-  `;
-  closeBtn.textContent = '✕ 닫기';
-  closeBtn.onmouseenter = () => closeBtn.style.background = 'rgba(155, 110, 232, 0.35)';
-  closeBtn.onmouseleave = () => closeBtn.style.background = 'rgba(155, 110, 232, 0.2)';
-  closeBtn.onclick = () => panel.remove();
-  content.appendChild(closeBtn);
-
-  panel.appendChild(content);
-  panel.onclick = (e) => { if (e.target === panel) panel.remove(); };
-  document.body.appendChild(panel);
-}
-
-// ─── 축복 버튼 (우상단 고정) ───
-(function createBlessingBtn() {
-  const btn = document.createElement('button');
-  btn.id = 'blessingBtn';
-  btn.textContent = '📖';
-  btn.style.cssText = `position:fixed;top:12px;right:60px;z-index:500;
-    width:38px;height:38px;font-size:16px;cursor:pointer;
-    background:rgba(4,8,20,0.82);border:1px solid rgba(155,110,232,0.3);
-    border-radius:10px;color:#9b6ee8;transition:all 0.2s;`;
-  btn.title = '보유 축복 목록 보기';
-  btn.onmouseenter = () => btn.style.color = '#c9a8ff';
-  btn.onmouseleave = () => btn.style.color = '#9b6ee8';
-  btn.onclick = () => showBlessingPanel();
-  setTimeout(() => document.body.appendChild(btn), 100);
-})();
-
 // ─── 설정 버튼 (우상단 고정) ───
 (function createSettingsBtn() {
   const btn = document.createElement('button');
@@ -7887,27 +7670,11 @@ function displayNextWaveInfo(waveInfo) {
 function spawnEnemiesForWave() {
   const w = bt.wave, diff = bt.diffMult, act = gs.act;
 
-  // 웨이브별 팁 메시지 (빈도 조정: 첫 웨이브 + 마지막 웨이브)
-  if (!bt._waveStartTipShown) {
+  // 웨이브별 팁 메시지 (첫 웨이브만 표시 - 빈도 조정)
+  if (w === 1 && !bt._waveStartTipShown) {
     bt._waveStartTipShown = true;
-    let tipKey, duration;
-
-    // 웨이브별 다른 메시지 & 지속시간 차등 적용
-    if (w === 1) {
-      tipKey = 'wave_start';
-      duration = 1200;  // Phase 2에서 조정 예정
-    } else if (w === bt.wavesTotal) {
-      tipKey = 'wave_last';
-      duration = 1500;  // Phase 2에서 조정 예정
-    } else {
-      // 중간 웨이브는 메시지 미표시 (UI 클린함 유지)
-      tipKey = null;
-    }
-
-    if (tipKey) {
-      const tip = getGameTip(tipKey);
-      if (tip) setTimeout(() => showToast(tip, duration), 100);
-    }
+    const tip = getGameTip('wave_start');
+    if (tip) setTimeout(() => showToast(tip, 1000), 100);
   }
 
   // 화면 내 일반몹 수 상한 — 초과 시 스폰 스킵 (성능 보호)
@@ -7932,13 +7699,13 @@ function spawnEnemiesForWave() {
     const k = bt.eliteKind;
     let eb;
     if (k === 'berserker') {
-      eb = {x:ex,y:ey,size:32,speed:1.3*spdM,hp:Math.ceil(80*diff*hpM),maxHp:Math.ceil(80*diff*hpM),
+      eb = {x:ex,y:ey,size:32,speed:1.3*spdM,hp:Math.ceil(55*diff*hpM),maxHp:Math.ceil(55*diff*hpM),
         color:'#e05050',type:'elite_berserker',isEliteBoss:true,dashTimer:120,dashActive:0,hitFlash:0};
     } else if (k === 'necromancer') {
-      eb = {x:ex,y:ey,size:30,speed:0.6*spdM,hp:Math.ceil(100*diff*hpM),maxHp:Math.ceil(100*diff*hpM),
+      eb = {x:ex,y:ey,size:30,speed:0.6*spdM,hp:Math.ceil(70*diff*hpM),maxHp:Math.ceil(70*diff*hpM),
         color:'#7040c0',type:'elite_necromancer',isEliteBoss:true,summonTimer:180,hasShield:true,hitFlash:0};
     } else {
-      eb = {x:ex,y:ey,size:48,speed:0.45*spdM,hp:Math.ceil(130*diff*hpM),maxHp:Math.ceil(130*diff*hpM),
+      eb = {x:ex,y:ey,size:48,speed:0.45*spdM,hp:Math.ceil(95*diff*hpM),maxHp:Math.ceil(95*diff*hpM),
         color:'#40a060',type:'elite_colossus',isEliteBoss:true,shockTimer:200,hitFlash:0};
     }
     bt.enemies.push(eb);
@@ -10142,8 +9909,7 @@ function updateBattle() {
         e.bossBulletTimer = 0;
         Audio.sfx.phaseTransition();
         showBossPhaseTransition(2, '#f07030', '💢 PHASE 2', '보스가 격노합니다!');
-        // ✅ [Phase 8] 파티클 개수 최적화: 28 → 18
-        for(let k=0;k<18;k++){ const a=k/18*Math.PI*2; spawnP(e.x+Math.cos(a)*70,e.y+Math.sin(a)*70,'#f07030',8,5); }
+        for(let k=0;k<28;k++){ const a=k/28*Math.PI*2; spawnP(e.x+Math.cos(a)*70,e.y+Math.sin(a)*70,'#f07030',8,5); }
         bt.explosions.push({x:e.x,y:e.y,maxRadius:180,radius:0,timer:22,color:'#f07030'});
       }
       else if(isPhase3 && e.phase === 2){
@@ -10155,8 +9921,7 @@ function updateBattle() {
         e.color = '#e03030';
         Audio.sfx.phaseTransition();
         showBossPhaseTransition(3, '#e03030', '🔥 FINAL PHASE', has4Phase ? '절망이 가까워진다!' : '최후의 발악!');
-        // ✅ [Phase 8] 파티클 개수 최적화: 36 → 20
-        for(let k=0;k<20;k++){ const a=k/20*Math.PI*2; spawnP(e.x+Math.cos(a)*90,e.y+Math.sin(a)*90,'#e03030',10,6); }
+        for(let k=0;k<36;k++){ const a=k/36*Math.PI*2; spawnP(e.x+Math.cos(a)*90,e.y+Math.sin(a)*90,'#e03030',10,6); }
         bt.explosions.push({x:e.x,y:e.y,maxRadius:220,radius:0,timer:26,color:'#e03030'});
       }
       else if(isPhase4 && e.phase === 3){
@@ -10169,8 +9934,7 @@ function updateBattle() {
         e.color = '#8800ff';
         Audio.sfx.phaseTransition();
         showBossPhaseTransition(4, '#aa00ff', '☠️ DESPAIR', '절망의 영역!');
-        // ✅ [Phase 8] 파티클 개수 최적화: 48 → 24
-        for(let k=0;k<24;k++){ const a=k/24*Math.PI*2; spawnP(e.x+Math.cos(a)*100,e.y+Math.sin(a)*100,'#aa00ff',12,7); }
+        for(let k=0;k<48;k++){ const a=k/48*Math.PI*2; spawnP(e.x+Math.cos(a)*100,e.y+Math.sin(a)*100,'#aa00ff',12,7); }
         bt.explosions.push({x:e.x,y:e.y,maxRadius:300,radius:0,timer:32,color:'#aa00ff'});
         for(let k=0;k<16;k++){
           const a=(k/16)*Math.PI*2;
@@ -10502,9 +10266,9 @@ function updateBattle() {
     b.x+=b.vx; b.y+=b.vy;
     // 카메라 기준 화면 밖으로 나가면 제거
     {const _cx=bt.cam.x,_cy=bt.cam.y;if(b.x<_cx-60||b.x>_cx+860||b.y<_cy-60||b.y>_cy+860){bt.bullets.splice(i,1);continue;}}
-    // ── 관통탄 극한 최적화: 4프레임마다만 충돌 검사 ──
+    // ── 관통탄 최적화: 짝수 프레임에만 충돌 검사 (매 프레임 2개 루프 제거) ──
     const isPierceOrWind = (s.piercing || b.windBlade);
-    const shouldCheckCollisions = !isPierceOrWind || ((bt.frameCount || 0) % 4 === 0);
+    const shouldCheckCollisions = !isPierceOrWind || ((bt.frameCount || 0) % 2 === 0);
 
     if(shouldCheckCollisions){
       for(let j=bt.enemies.length-1;j>=0;j--){
@@ -10525,132 +10289,101 @@ function updateBattle() {
             }
             b._pierceHitMap[euid] = 10; // 10 프레임 쿨타임
           }
-          // ✅ [Phase 5 수정] 모든 데미지/이펙트 코드를 충돌 감지 블록 내로 이동
-          if(s.aoe>0){
-            const ar=20+s.aoe*15;
-            const ar2=ar*ar;
-            bt.explosions.push({x:b.x,y:b.y,maxRadius:ar,radius:0,timer:15});
-            // ✅ [Phase 5] AOE 폭발 최적화: 거리 기반 필터링
-            // 범위 내 적만 처리 (모든 적 순회 대신)
-            for(let j=bt.enemies.length-1;j>=0;j--){
-              const e=bt.enemies[j];
-              const edx=b.x-e.x,edy=b.y-e.y;
-              if(edx*edx+edy*edy<ar2) damageEnemy(e,1+s.aoe*0.5,true);
-            }
-            Audio.sfx.explosion();
-          }
-          const baseDmg = ((b.beam?4:2) + (s.bulletDmg||0) + (b.windBlade?4:0)) * relicsBulletMult() * (bt._starPowerSecs > 0 ? 1.5 : 1);
-          // 치명타 (critical1 카드)
-          const critChance = Math.min(0.80, (s.critical||0)*0.20 + (s._synHomingCrit?0.20:0));
-          let isCritCard = critChance > 0 && Math.random() < critChance;
-          // [고양이 패시브] 집중 사격: 같은 적 4발 연속 명중 → 5번째 강제 크리 ×4
-          const _isCat = gs.selectedChar?.id === 'cat';
-          let _catMegaCrit = false;
-          if(_isCat && bt.enemies[j]){
-            const _ej = bt.enemies[j];
-            if(!_ej._uid){ bt._uidCounter = (bt._uidCounter||0)+1; _ej._uid = bt._uidCounter; }
-            // ✅ 첫 적도 정상 카운트 (초기화 후 바로 비교하지 않음)
-            if(!bt._catFocusUid) { bt._catFocusUid = _ej._uid; bt._catFocusHits = 1; }
-            else if(_ej._uid === bt._catFocusUid){ bt._catFocusHits = (bt._catFocusHits||0)+1; }
-            else { bt._catFocusUid = _ej._uid; bt._catFocusHits = 1; }
-            if(bt._catFocusHits % 5 === 0) _catMegaCrit = true;
-          }
-          // 그림자 망토 보너스
-          let finalDmg = (gs._relicShadowReady) ? baseDmg*3 : baseDmg;
-          if(isCritCard) finalDmg *= (gs._critDmgUpgraded || gs._curseDemonEye || s._synHomingCrit) ? 4 : 3;
-          // [고양이 패시브] 집중 사격 크리 ×4 (카드 크리와 중복 적용 안함)
-          if(_catMegaCrit && !isCritCard){ finalDmg *= 4; }
-          // [펭귄 패시브] 원검 일체: 스택당 탄환 데미지 +25%
-          if(gs.selectedChar?.id==='penguin' && (bt._penguinBladeStack||0) > 0){
-            finalDmg = Math.ceil(finalDmg * (1 + 0.25 * bt._penguinBladeStack));
-          }
-          // [토끼 패시브] 도약 반격: 대시 직후 30프레임 탄환 데미지 ×2.5
-          if(gs.selectedChar?.id==='rabbit' && (bt._rabbitStrikeWindow||0) > 0){
-            finalDmg = Math.ceil(finalDmg * 2.5);
-          }
-          // 광전사: HP 낮을수록 데미지 최대 ×3
-          if(s.berserker){ const _hpR=p.hp/p.maxHp; finalDmg=Math.ceil(finalDmg*(1+(1-_hpR)*2)); }
-          // 유리 대포: 탄환 데미지 배율
-          if(s.glassDmg && s.glassDmg>1) finalDmg=Math.ceil(finalDmg*s.glassDmg);
-          if(gs._relicShadowReady) gs._relicShadowReady=false;
-          if(isCritCard){ spawnDN(bt.enemies[j].x,bt.enemies[j].y-bt.enemies[j].size,'CRIT!','#ffcc20',true,'crit'); Audio.sfx.criticalHit(); }
-          if(_catMegaCrit && !isCritCard){ spawnDN(bt.enemies[j].x,bt.enemies[j].y-bt.enemies[j].size-14,'🎯 집중!','#ff44ff',true,'crit'); Audio.sfx.criticalHit(); }
-          // 관통/풍인은 isMultiHit=true로 파티클/사운드/텍스트 제한
-          damageEnemy(bt.enemies[j], finalDmg, s.piercing || b.windBlade);
-          // ✅ [Phase 5] 여우 패시브 폭발 최적화
-          if(b.explosive && bt.enemies[j]){
-            const _foxR = 55 + (s.aoe||0)*10;
-            const _foxR2=_foxR*_foxR;
-            bt.explosions.push({x:b.x,y:b.y,maxRadius:_foxR,radius:0,timer:14,color:'#ff7820'});
-            // 거리 기반 필터링으로 forEach 최적화
-            for(let jf=bt.enemies.length-1;jf>=0;jf--){
-              if(jf===j) continue; // 원래 맞은 적 제외
-              const _fe=bt.enemies[jf];
-              const fdx=b.x-_fe.x,fdy=b.y-_fe.y;
-              if(fdx*fdx+fdy*fdy<_foxR2) damageEnemy(_fe, 1+(s.aoe||0)*0.5, true);
-            }
-            spawnP(b.x,b.y,'#ff8840',8,3);
-            Audio.sfx.explosion();
-          }
-          // 흡혈석
-          if(hasRelic('r_leech_stone')){ gs.player.hp=Math.min(gs.player.maxHp,gs.player.hp+finalDmg*0.01); }
-          // 생명 흡수 (lifeDrain 카드)
-          if((s.lifeDrain||0)>0 && bt.enemies[j]){ const _drain=Math.max(1,Math.floor(finalDmg*0.25*s.lifeDrain)); p.hp=Math.min(p.maxHp,p.hp+_drain); }
-          // 빙결 룬
-          if(hasRelic('r_frost_rune')&&Math.random()<0.2&&bt.enemies[j]){ bt.enemies[j].frozen=Math.max(bt.enemies[j].frozen||0,90); }
-          // 독탄 (poisonShot 카드)
-          if(s.poisonShot && bt.enemies[j]){ bt.enemies[j].poison=Math.max(bt.enemies[j].poison||0, 180); }
-          // ✅ [Phase 5] 폭발 장전 최적화
-          if(s.explRounds && bt.enemies[j]){
-            const _er=28+(s.aoe||0)*8;
-            const _er2=_er*_er;
-            bt.explosions.push({x:b.x,y:b.y,maxRadius:_er,radius:0,timer:12,color:'#ff8840'});
-            // 거리 기반 필터링으로 최적화
-            for(let je=bt.enemies.length-1;je>=0;je--){
-              if(je===j) continue;
-              const _e=bt.enemies[je];
-              const erdx=b.x-_e.x,erdy=b.y-_e.y;
-              if(erdx*erdx+erdy*erdy<_er2) damageEnemy(_e,1+(s.aoe||0)*0.3, true);
-            }
-          }
-          // 도탄 (ricochet 카드) — 비관통 탄환 명중 시 반사
-          if((s.ricochet||0)>0 && !b.pierce && !b.beam && !b.ricocheted && bt.enemies[j]){
-            const _rAngle=Math.atan2(b.vy,b.vx)+Math.PI+(Math.random()-0.5)*1.2;
-            const _rSpd=Math.hypot(b.vx,b.vy)*0.75;
-            bt.bullets.push({x:b.x,y:b.y,vx:Math.cos(_rAngle)*_rSpd,vy:Math.sin(_rAngle)*_rSpd,pierce:false,ricocheted:true,trail:[]});
-            spawnP(b.x,b.y,'#ffffff',4,2);
-          }
-          // 충격파 (shockwave 카드) — 적 밀어내기
-          if((s.shockwave||0)>0 && bt.enemies[j]){
-            const pushA=Math.atan2(bt.enemies[j].y-p.y,bt.enemies[j].x-p.x);
-            const _pushDist = Math.min(20, 8 + s.shockwave * 4);
-            bt.enemies[j].x+=Math.cos(pushA)*_pushDist;
-            bt.enemies[j].y+=Math.sin(pushA)*_pushDist;
-          }
-          // ✅ [Phase 5] 치명타+번개 시너지 최적화 (sort 제거)
-          if(isCritCard && s._synCritThunder && bt.enemies[j]){
-            const refX=bt.enemies[j].x,refY=bt.enemies[j].y;
-            // Sort 대신 간단 선택으로 최대 3개만 찾기
-            let near=[];
-            for(let t=0;t<Math.min(3,bt.enemies.length);t++){
-              let closest=-1, closestDist=Infinity;
-              for(let k=0;k<bt.enemies.length;k++){
-                if(bt.enemies[k]===bt.enemies[j] || near.includes(bt.enemies[k])) continue;
-                const ax=bt.enemies[k].x-refX,ay=bt.enemies[k].y-refY;
-                const d2=ax*ax+ay*ay;
-                if(d2<closestDist){ closestDist=d2; closest=k; }
-              }
-              if(closest>=0) near.push(bt.enemies[closest]);
-            }
-            // 번개 시너지: 다단히트로 처리
-            for(let t=0;t<near.length;t++){
-              bt.lightningbolts.push({x1:bt.enemies[j].x,y1:bt.enemies[j].y,x2:near[t].x,y2:near[t].y,timer:8});
-              damageEnemy(near[t],3,true);
-            }
-            if(near.length) Audio.sfx.lightning();
-          }
-          if(!s.piercing&&!b.beam&&!b.windBlade){bt.bullets.splice(i,1);break;}// 관통·풍인은 계속 진행
+        if(s.aoe>0){
+          const ar=20+s.aoe*15;
+          const ar2=ar*ar;
+          bt.explosions.push({x:b.x,y:b.y,maxRadius:ar,radius:0,timer:15});
+          // AOE 폭발: 다단히트로 처리 (파티클/사운드 제한)
+          bt.enemies.forEach(e=>{const edx=b.x-e.x,edy=b.y-e.y;if(edx*edx+edy*edy<ar2)damageEnemy(e,1+s.aoe*0.5,true);});
+          Audio.sfx.explosion();
         }
+        const baseDmg = ((b.beam?4:2) + (s.bulletDmg||0) + (b.windBlade?4:0)) * relicsBulletMult() * (bt._starPowerSecs > 0 ? 1.5 : 1);
+        // 치명타 (critical1 카드)
+        const critChance = Math.min(0.80, (s.critical||0)*0.20 + (s._synHomingCrit?0.20:0));
+        let isCritCard = critChance > 0 && Math.random() < critChance;
+        // [고양이 패시브] 집중 사격: 같은 적 4발 연속 명중 → 5번째 강제 크리 ×4
+        const _isCat = gs.selectedChar?.id === 'cat';
+        let _catMegaCrit = false;
+        if(_isCat && bt.enemies[j]){
+          const _ej = bt.enemies[j];
+          if(!_ej._uid){ bt._uidCounter = (bt._uidCounter||0)+1; _ej._uid = bt._uidCounter; }
+          // ✅ 첫 적도 정상 카운트 (초기화 후 바로 비교하지 않음)
+          if(!bt._catFocusUid) { bt._catFocusUid = _ej._uid; bt._catFocusHits = 1; }
+          else if(_ej._uid === bt._catFocusUid){ bt._catFocusHits = (bt._catFocusHits||0)+1; }
+          else { bt._catFocusUid = _ej._uid; bt._catFocusHits = 1; }
+          if(bt._catFocusHits % 5 === 0) _catMegaCrit = true;
+        }
+        // 그림자 망토 보너스
+        let finalDmg = (gs._relicShadowReady) ? baseDmg*3 : baseDmg;
+        if(isCritCard) finalDmg *= (gs._critDmgUpgraded || gs._curseDemonEye || s._synHomingCrit) ? 4 : 3;
+        // [고양이 패시브] 집중 사격 크리 ×4 (카드 크리와 중복 적용 안함)
+        if(_catMegaCrit && !isCritCard){ finalDmg *= 4; }
+        // [펭귄 패시브] 원검 일체: 스택당 탄환 데미지 +25%
+        if(gs.selectedChar?.id==='penguin' && (bt._penguinBladeStack||0) > 0){
+          finalDmg = Math.ceil(finalDmg * (1 + 0.25 * bt._penguinBladeStack));
+        }
+        // [토끼 패시브] 도약 반격: 대시 직후 30프레임 탄환 데미지 ×2.5
+        if(gs.selectedChar?.id==='rabbit' && (bt._rabbitStrikeWindow||0) > 0){
+          finalDmg = Math.ceil(finalDmg * 2.5);
+        }
+        // 광전사: HP 낮을수록 데미지 최대 ×3
+        if(s.berserker){ const _hpR=p.hp/p.maxHp; finalDmg=Math.ceil(finalDmg*(1+(1-_hpR)*2)); }
+        // 유리 대포: 탄환 데미지 배율
+        if(s.glassDmg && s.glassDmg>1) finalDmg=Math.ceil(finalDmg*s.glassDmg);
+        if(gs._relicShadowReady) gs._relicShadowReady=false;
+        if(isCritCard){ spawnDN(bt.enemies[j].x,bt.enemies[j].y-bt.enemies[j].size,'CRIT!','#ffcc20',true,'crit'); Audio.sfx.criticalHit(); }
+        if(_catMegaCrit && !isCritCard){ spawnDN(bt.enemies[j].x,bt.enemies[j].y-bt.enemies[j].size-14,'🎯 집중!','#ff44ff',true,'crit'); Audio.sfx.criticalHit(); }
+        // 관통/풍인은 isMultiHit=true로 파티클/사운드/텍스트 제한
+        damageEnemy(bt.enemies[j], finalDmg, s.piercing || b.windBlade);
+        // [여우 패시브] 폭발 직감: 폭발탄 명중 시 소형 폭발 (AOE 독립)
+        if(b.explosive && bt.enemies[j]){
+          const _foxR = 55 + (s.aoe||0)*10;
+          const _foxR2=_foxR*_foxR;
+          bt.explosions.push({x:b.x,y:b.y,maxRadius:_foxR,radius:0,timer:14,color:'#ff7820'});
+          // 여우 폭발: 다단히트로 처리
+          bt.enemies.forEach(_fe=>{ if(_fe!==bt.enemies[j]){const fdx=b.x-_fe.x,fdy=b.y-_fe.y;if(fdx*fdx+fdy*fdy<_foxR2)damageEnemy(_fe, 1+(s.aoe||0)*0.5, true);} });
+          spawnP(b.x,b.y,'#ff8840',8,3);
+          Audio.sfx.explosion();
+        }
+        // 흡혈석
+        if(hasRelic('r_leech_stone')){ gs.player.hp=Math.min(gs.player.maxHp,gs.player.hp+finalDmg*0.01); }
+        // 생명 흡수 (lifeDrain 카드)
+        if((s.lifeDrain||0)>0 && bt.enemies[j]){ const _drain=Math.max(1,Math.floor(finalDmg*0.25*s.lifeDrain)); p.hp=Math.min(p.maxHp,p.hp+_drain); }
+        // 빙결 룬
+        if(hasRelic('r_frost_rune')&&Math.random()<0.2&&bt.enemies[j]){ bt.enemies[j].frozen=Math.max(bt.enemies[j].frozen||0,90); }
+        // 독탄 (poisonShot 카드)
+        if(s.poisonShot && bt.enemies[j]){ bt.enemies[j].poison=Math.max(bt.enemies[j].poison||0, 180); }
+        // 폭발 장전 (explosiveRounds 카드)
+        if(s.explRounds && bt.enemies[j]){
+          const _er=28+(s.aoe||0)*8;
+          const _er2=_er*_er;
+          bt.explosions.push({x:b.x,y:b.y,maxRadius:_er,radius:0,timer:12,color:'#ff8840'});
+          // 폭발 장전: 다단히트로 처리
+          bt.enemies.forEach(_e=>{ if(_e!==bt.enemies[j]){const erdx=b.x-_e.x,erdy=b.y-_e.y;if(erdx*erdx+erdy*erdy<_er2)damageEnemy(_e,1+(s.aoe||0)*0.3, true);} });
+        }
+        // 도탄 (ricochet 카드) — 비관통 탄환 명중 시 반사
+        if((s.ricochet||0)>0 && !b.pierce && !b.beam && !b.ricocheted && bt.enemies[j]){
+          const _rAngle=Math.atan2(b.vy,b.vx)+Math.PI+(Math.random()-0.5)*1.2;
+          const _rSpd=Math.hypot(b.vx,b.vy)*0.75;
+          bt.bullets.push({x:b.x,y:b.y,vx:Math.cos(_rAngle)*_rSpd,vy:Math.sin(_rAngle)*_rSpd,pierce:false,ricocheted:true,trail:[]});
+          spawnP(b.x,b.y,'#ffffff',4,2);
+        }
+        // 충격파 (shockwave 카드) — 적 밀어내기
+        if((s.shockwave||0)>0 && bt.enemies[j]){
+          const pushA=Math.atan2(bt.enemies[j].y-p.y,bt.enemies[j].x-p.x);
+          const _pushDist = Math.min(20, 8 + s.shockwave * 4);
+          bt.enemies[j].x+=Math.cos(pushA)*_pushDist;
+          bt.enemies[j].y+=Math.sin(pushA)*_pushDist;
+        }
+        // 치명타+번개 시너지
+        if(isCritCard && s._synCritThunder && bt.enemies[j]){
+          const refX=bt.enemies[j].x,refY=bt.enemies[j].y;
+          const near=bt.enemies.filter(e=>e!==bt.enemies[j]).sort((a,b2)=>{const ax=a.x-refX,ay=a.y-refY,bx=b2.x-refX,by=b2.y-refY;return(ax*ax+ay*ay)-(bx*bx+by*by)}).slice(0,3);
+          // 번개 시너지: 다단히트로 처리
+          near.forEach(t=>{ bt.lightningbolts.push({x1:bt.enemies[j].x,y1:bt.enemies[j].y,x2:t.x,y2:t.y,timer:8}); damageEnemy(t,3,true); });
+          if(near.length) Audio.sfx.lightning();
+        }
+        if(!s.piercing&&!b.beam&&!b.windBlade){bt.bullets.splice(i,1);break;}// 관통·풍인은 계속 진행
       }
     }
   }
@@ -10741,101 +10474,48 @@ function updateBattle() {
 
   // 회전 검
   if(s.sword>0){
-    // ✅ [Phase 8 개선] 회전검 최적화: 검 위치 캐싱으로 O(E×S) 루프 효율화
     // 광전사 시너지: 회전 속도 2배, 데미지 추가
     const _swordRotSpd = s._synBerserkerBlade ? 0.055*2 : 0.055;
     bt.swordAngle+=_swordRotSpd;
-
-    // ✅ [Phase 8] 검 위치 미리 계산 (이번 프레임에 한 번만)
-    // O(S)에서 검 위치를 모두 계산해두고, O(E×S) 루프에서 재사용
-    const swordR2=(18)*(18); // 미리 제곱 계산
-    const _swordPos = [];
+    let swordHit=false;
+    const hitEnemies = new Set(); // 이번 프레임에 맞은 적 기록 (같은 적에게 여러 검이 맞아도 1번만 카운트)
     for(let sv=0;sv<s.sword;sv++){
       const angle=bt.swordAngle+(sv/s.sword)*Math.PI*2;
-      _swordPos.push({
-        x: p.x+Math.cos(angle)*55,
-        y: p.y+Math.sin(angle)*55
-      });
-    }
-
-    let swordHit=false;
-    const hitEnemies = new Set();
-
-    // ✅ [Phase 8] 적별로 캐시된 검 위치와 비교 (성능 개선)
-    for(let j=bt.enemies.length-1;j>=0;j--){
-      const e=bt.enemies[j];
-      let hitCount=0;
-
-      // 이 적이 몇 개 검과 충돌하는지 확인 (캐시된 위치 사용)
-      for(let sv=0;sv<_swordPos.length;sv++){
-        const sp=_swordPos[sv];
-        const sdx=sp.x-e.x,sdy=sp.y-e.y;
-        if(sdx*sdx+sdy*sdy<swordR2){
-          hitCount++;
-          if(hitCount===1) hitEnemies.add(e); // 첫 충돌만 기록
+      const sx=p.x+Math.cos(angle)*55,sy=p.y+Math.sin(angle)*55;
+      bt.enemies.forEach(e=>{
+        const swordR=e.size+13;
+        const sdx=sx-e.x,sdy=sy-e.y;
+        if(sdx*sdx+sdy*sdy<swordR*swordR && !hitEnemies.has(e)){
+          hitEnemies.add(e);
+          let sDmg=Math.max(1,s.sword);
+          // 광전사 모드: HP 낮을수록 데미지 최대 ×4
+          if(s._synBerserkerBlade){
+            const _hpR=p.hp/p.maxHp;
+            sDmg=Math.ceil(sDmg*(1+(1-_hpR)*3));
+          }
+          damageEnemy(e,sDmg); swordHit=true;
+          // [펭귄 패시브] 원검 일체: 검 명중 시 스택 +1 (최대4), 3초 유지
+          if(gs.selectedChar?.id==='penguin'){ bt._penguinBladeStack=Math.min(4,(bt._penguinBladeStack||0)+1); bt._penguinBladeTimer=180; }
         }
-      }
-
-      if(hitCount>0){
-        let sDmg=Math.max(1,s.sword*hitCount*0.6); // 충돌 횟수만큼 데미지 (중복 방지)
-        // 광전사 모드: HP 낮을수록 데미지 최대 ×4
-        if(s._synBerserkerBlade){
-          const _hpR=p.hp/p.maxHp;
-          sDmg=Math.ceil(sDmg*(1+(1-_hpR)*3));
-        }
-        damageEnemy(e,sDmg,false); // 검은 다단히트 제한 없음
-        swordHit=true;
-        // [펭귄 패시브] 원검 일체: 검 명중 시 스택 +1 (최대4), 3초 유지
-        if(gs.selectedChar?.id==='penguin'){ bt._penguinBladeStack=Math.min(4,(bt._penguinBladeStack||0)+1); bt._penguinBladeTimer=180; }
-      }
+      }); // [M5] 검 레벨에 따라 데미지 증가
     }
-
-    // ✅ [Phase 8] 사운드는 0.5초(30프레임)마다 1회 (더 자연스러움)
-    if(swordHit && !bt._swordSoundCooldown){
-      Audio.sfx.sword();
-      bt._swordSoundCooldown = 30; // 60→30: 더 자주 재생
-    }
-    if(bt._swordSoundCooldown) bt._swordSoundCooldown--;
+    if(swordHit && Math.random()<0.15) Audio.sfx.sword();
   }
 
-  // ✅ [Phase 8] 번개 최적화: 거리 캐싱으로 O(n²) → O(n) 개선
+  // 번개
   if(s.lightning>0){
     bt.lightningTimer--;
     if(bt.lightningTimer<=0){
       bt.lightningTimer=Math.max(8,55-s.lightning*8);
-
-      // ✅ [Phase 8] 거리 사전 계산 (1회만 수행)
-      const distances = bt.enemies.map((e, idx) => {
-        const dx = e.x - p.x, dy = e.y - p.y;
-        return {idx, d2: dx*dx + dy*dy};
-      });
-
-      // ✅ [Phase 8] 거리 기준 정렬 (O(n log n))
-      distances.sort((a, b) => a.d2 - b.d2);
-
-      // ✅ [Phase 8] 상위 N개만 선택 (O(1))
-      let targets = distances.slice(0, Math.min(s.lightning+1, distances.length)).map(d => bt.enemies[d.idx]);
-
+      const targets=[...bt.enemies].sort((a,b)=>{const ax=a.x-p.x,ay=a.y-p.y,bx=b.x-p.x,by=b.y-p.y;return(ax*ax+ay*ay)-(bx*bx+by*by)}).slice(0,s.lightning+1);
       targets.forEach(t=>{
         bt.lightningbolts.push({x1:p.x,y1:p.y,x2:t.x,y2:t.y,timer:8});
         const lDmg = (s._synFrostStorm && (t.frozen || 0) > 30) ? (2+s.lightning*0.5)*3 : (2+s.lightning*0.5);
         // 번개: 다단히트로 처리
         damageEnemy(t, lDmg, true);
-
-        // ✅ [Phase 8] 연쇄 강타 최적화: 거리 캐싱 적용
+        // 연쇄 강타 (chainStrike 카드)
         if((s.chainStrike||0)>0){
-          // ✅ [Phase 8] 기존 타겟 제외한 적들의 거리 계산
-          const chainDistances = bt.enemies
-            .filter(e => e !== t)
-            .map((e, idx) => {
-              const dx = e.x - t.x, dy = e.y - t.y;
-              return {enemy: e, d2: dx*dx + dy*dy};
-            });
-
-          // ✅ [Phase 8] 정렬 후 상위 N개 선택
-          let _cTargets = chainDistances.sort((a, b) => a.d2 - b.d2)
-            .slice(0, Math.min(s.chainStrike+1, chainDistances.length))
-            .map(d => d.enemy);
+          const _cTargets=bt.enemies.filter(e=>e!==t).sort((a,b2)=>{const ax=a.x-t.x,ay=a.y-t.y,bx=b2.x-t.x,by=b2.y-t.y;return(ax*ax+ay*ay)-(bx*bx+by*by)}).slice(0,s.chainStrike+1);
           _cTargets.forEach(ct=>{
             bt.lightningbolts.push({x1:t.x,y1:t.y,x2:ct.x,y2:ct.y,timer:6});
             // 연쇄 강타: 다단히트로 처리
@@ -11060,117 +10740,55 @@ function damageEnemy(e,dmg,isMultiHit=false){
   if(gs._relicKineticSurge && gs.player._isMoving) dmg = Math.ceil(dmg * 1.5); // 운동량 증폭기
   gs._totalDmgDealt = (gs._totalDmgDealt||0) + dmg;
   e.hp-=dmg; e.hitFlash=8; // hitFlash 연장 (5→8)
-  // ✅ [Phase 7] 크리틱 판정 개선: 보스도 높은 데미지에만 (dmg >= 5)
-  const isCrit = dmg >= 5;
+  const isCrit = dmg >= 5 || (e.isBoss && dmg >= 3);
   e._hitCount = (e._hitCount||0) + 1;
 
-  // ✅ [Phase 5] 히트스톱 클램핑 (누적 방지)
+  // 히트스톱: 피격 순간 게임이 잠깐 멈춰 타격감 부여 (뼈대만 있던 코드 활성화)
   bt.hitstop = Math.max(bt.hitstop||0, isCrit ? 4 : 2);
-  if(bt.hitstop > 8) bt.hitstop = 8; // ✅ [Phase 8] 최대값 10→8 단축 (133ms 유지)
 
-  // ✅ [Phase 5] 넉백 계산 최적화: 급한 경우만 계산
-  if(!e.isBoss && !isMultiHit){ // 다단히트는 넉백 스킵
-    const dy=e.y-gs.player.y, dx=e.x-gs.player.x;
-    // 각도 계산 없이 정규화된 벡터로 (atan2 제거)
-    const dist = Math.sqrt(dx*dx+dy*dy)+0.01;
+  // 넉백: 보스 제외, 피격 방향으로 적이 튕겨나감
+  if(!e.isBoss){
+    const kbAngle = Math.atan2(e.y-gs.player.y, e.x-gs.player.x);
     const kbForce = e.isEliteBoss ? 2 : e.type==='tank' ? 1.5 : 3.5;
-    e.kbx = (e.kbx||0) + (dx/dist)*kbForce;
-    e.kby = (e.kby||0) + (dy/dist)*kbForce;
+    e.kbx = (e.kbx||0) + Math.cos(kbAngle)*kbForce;
+    e.kby = (e.kby||0) + Math.sin(kbAngle)*kbForce;
   }
 
-  // ✅ [Phase 8+] 파티클 스케줄러: 데미지 강도 + 적 타입별 주기 적용
-  if(!isMultiHit){ // 다단히트는 파티클 스킵
-    const particleCount = (bt.particles||[]).length;
-
-    // ✅ [Phase 9] 파티클 동적 제한 고도화: 게임 상황별 세밀한 조절
-    let maxParticles = 200;
-
-    // 1. 보스 전투 중이면 제한 강화
-    if(bt.enemies.some(en => en.isBoss)) {
-      maxParticles = 150; // 보스: 더 엄격한 제한
+  // 스파크 강화 + 임팩트 링 (히트 지점 확산 원형 플래시)
+  const hitAngle = Math.atan2(e.y-gs.player.y, e.x-gs.player.x);
+  const sparkColor = e.frozen>0?'#a8e8ff': gs.act===3?'#ff8840': gs.act===2?'#88ccff':'#ffe080';
+  // 다단히트: 파티클 생성 제한 (성능 최적화)
+  const particleCount = (bt.particles||[]).length + (bt.impactRings||[]).length;
+  const shouldSpawnParticles = !isMultiHit && particleCount < 400; // 다단히트 아닐 때만 & 파티클 < 400
+  if(shouldSpawnParticles && (isCrit || e.isBoss || e.isEliteBoss || e._hitCount % 2 === 0)){
+    const sparkCount = isCrit ? 9 : e.isBoss ? 6 : 5;
+    for(let k=0;k<sparkCount;k++){
+      const a = hitAngle + (k-(sparkCount-1)*0.5)*0.4 + (Math.random()-0.5)*0.15;
+      const spd = 3.5 + Math.random()*4;
+      bt.particles.push({x:e.x,y:e.y,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,life:18+Math.random()*14,maxLife:32,color:sparkColor,size:2+Math.random()*4});
     }
-
-    // 2. 적 개수에 따른 동적 조절
-    const enemyCount = bt.enemies.length;
-    if(enemyCount > 20) {
-      maxParticles = Math.max(50, maxParticles - (enemyCount - 20) * 3);
-    } else if(enemyCount > 10) {
-      maxParticles = Math.max(50, maxParticles - (enemyCount - 10) * 2);
-    }
-
-    // 3. 게임 진행 단계별 조절 (후반부일수록 더 엄격)
-    if(bt.wave >= 8) {
-      maxParticles = Math.max(50, maxParticles - 30); // 최종 웨이브: 추가 감소
-    } else if(bt.wave < 3) {
-      maxParticles = Math.min(maxParticles + 50, 300); // 초반: 시각 효과 강조
-    }
-
-    maxParticles = Math.max(50, maxParticles); // 최소 50 유지
-
-    // ✅ [Phase 8] 파티클 생성 주기 결정:
-    // - 크리틱: 매번 (hitCount 무관)
-    // - 보스 히트: 2타격마다
-    // - 엘리트: 3타격마다
-    // - 일반: 4타격마다
-    // - 높은 데미지(dmg >= 5): 추가 보너스 (-1 주기)
-    let particleChance = true;
-    if(!isCrit){
-      const baseChance = e.isBoss ? 2 : e.isEliteBoss ? 3 : 4;
-      const hitCount = (e._hitCount || 0) % Math.max(1, baseChance - (dmg >= 5 ? 1 : 0));
-      particleChance = hitCount === 0;
-    }
-
-    if(particleCount < maxParticles && particleChance){
-      const sparkColor = e.frozen>0?'#a8e8ff': gs.act===3?'#ff8840': gs.act===2?'#88ccff':'#ffe080';
-      // ✅ [Phase 7] dy, dx 정의 위치 수정: 모든 경우에 정의되도록
-      const dy=e.y-gs.player.y, dx=e.x-gs.player.x;
-      const hitAngle = Math.atan2(dy, dx); // 한 번만 계산
-      // ✅ [Phase 8] 크리틱 시 파티클 개수 증가, 일반은 감소
-      const sparkCount = isCrit ? 8 : e.isBoss ? 4 : e.isEliteBoss ? 3 : 2;
-      for(let k=0;k<sparkCount;k++){
-        const a = hitAngle + (k-(sparkCount-1)*0.5)*0.4 + (Math.random()-0.5)*0.15;
-        const spd = 3.5 + Math.random()*4;
-        bt.particles.push({x:e.x,y:e.y,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,life:18+Math.random()*14,maxLife:32,color:sparkColor,size:2+Math.random()*4});
-      }
-      // ✅ [Phase 6] 임팩트링 생성 대폭 제한: 크리틱만, 그리고 기존 링이 적을 때만
-      if(isCrit && (bt.impactRings||[]).length < 3) bt.impactRings.push({x:e.x,y:e.y,r:2,maxR:e.size*2.4+8,life:7,maxLife:7,color:sparkColor});
-    }
+    bt.impactRings.push({x:e.x,y:e.y,r:2,maxR:e.size*2.4+8,life:7,maxLife:7,color:sparkColor});
   }
 
-  // ✅ [Phase 5] 데미지 텍스트 최적화: 다단히트는 완전 스킵
-  if(!isMultiHit){
-    if(isCrit){
-      spawnDN(e.x, e.y - e.size, Math.ceil(dmg)+'!', '#ffcc20', true, 'crit');
-    } else if(dmg >= 3 && e._hitCount % 3 === 0){
-      spawnDN(e.x, e.y - e.size, Math.ceil(dmg), dmg>=3?'#f87030':'#ccc', false, dmg>=5?'fire':'');
-    }
+  // 데미지 숫자: 크리 or 중요 피해(≥3)만 표시, 자잘한 연속타는 4번마다 1회
+  // 다단히트는 텍스트 표시 50% 줄이기
+  if(isCrit){
+    spawnDN(e.x, e.y - e.size, Math.ceil(dmg)+'!', '#ffcc20', true, 'crit');
+  } else if(!isMultiHit && (dmg >= 3 || e._hitCount % 4 === 0)){
+    spawnDN(e.x, e.y - e.size, Math.ceil(dmg), dmg>=3?'#f87030':'#ccc', false, dmg>=5?'fire':'');
+  } else if(isMultiHit && dmg >= 5 && e._hitCount % 8 === 0){
+    spawnDN(e.x, e.y - e.size, Math.ceil(dmg), '#ff8840', false, '');
   }
-
-  // ✅ [Phase 5] 음향 최적화: 쿨타임으로 스팸 방지
+  // 사운드: 다단히트는 10% 확률로만 재생 (사운드 스팸 방지)
   if(isMultiHit){
-    if(Math.random() < 0.05) { if(isCrit) Audio.sfx.hitCrit(); else Audio.sfx.hit(); }
+    if(Math.random() < 0.1) { if(isCrit) Audio.sfx.hitCrit(); else Audio.sfx.hit(); }
   } else {
-    // ✅ [Phase 8] 일반 공격 음향 쿨타임 증가 (50→80ms, 스팸 방지)
-    if(!bt._lastHitSoundTime || Date.now() - bt._lastHitSoundTime > 80){
-      if(isCrit) Audio.sfx.hitCrit(); else Audio.sfx.hit();
-      bt._lastHitSoundTime = Date.now();
-    }
+    if(isCrit) Audio.sfx.hitCrit(); else Audio.sfx.hit();
   }
-
   // 스케일 펄스 (피격 순간 납작 → 원래대로)
   e.hitPulse = 6;
-
-  // ✅ [Phase 8] 빈네트 플래시 쿨타임 추가 (8프레임마다 1회만)
-  if(isCrit && !isMultiHit){
-    // 쿨타임 체크 및 적용
-    if(!bt._vignetteFlashCooldown || bt._vignetteFlashCooldown <= 0){
-      bt.vignetteFlash = Math.min(0.6, 0.40); // 고정값으로 설정
-      bt._vignetteFlashCooldown = 8; // 8프레임 쿨타임
-    }
-    // 쿨타임 감소
-    if(bt._vignetteFlashCooldown) bt._vignetteFlashCooldown--;
-  }
-
+  // 빈네트 플래시 (크리 시 화면 가장자리 번쩍임, 다단히트는 스킵)
+  if(isCrit && !isMultiHit) bt.vignetteFlash = Math.max(bt.vignetteFlash||0, 0.40);
   if(e.hp<=0){
     bt.hitstop = Math.max(bt.hitstop||0, 5); // 처치 히트스톱 (일반 피격보다 더 길게)
     killEnemy(e);
@@ -11207,8 +10825,7 @@ function killEnemy(e){
   bt.deathFlashes.push({x:e.x,y:e.y,size:e.size*(e.isBoss?1.15:1),life:5,maxLife:5});
   if(e.isEliteBoss || e.isBoss){
     spawnP(e.x,e.y,e.color,18,6);
-    // ✅ [Phase 6] impactRings 생성 제한: 최대 2개만
-    if((bt.impactRings||[]).length < 2) bt.impactRings.push({x:e.x,y:e.y,r:2,maxR:e.size*5,life:10,maxLife:10,color:'#ffffff'});
+    bt.impactRings.push({x:e.x,y:e.y,r:2,maxR:e.size*5,life:10,maxLife:10,color:'#ffffff'});
     bt.vignetteFlash = Math.max(bt.vignetteFlash||0, 0.8);
     // 엘리트 처치: 0.25초 슬로우모션 킬캠
     if(e.isEliteBoss && !e.isBoss){
@@ -11218,8 +10835,7 @@ function killEnemy(e){
   } else {
     spawnP(e.x,e.y,e.color,12,5);
     bt.screenShake = Math.max(bt.screenShake||0, 2);
-    // ✅ [Phase 6] 일반 적 처치 시 impactRings 완전 제거 (성능 개선)
-    // 일반 적은 다른 비주얼로 충분함 (죽음 플래시, screenShake)
+    bt.impactRings.push({x:e.x,y:e.y,r:2,maxR:e.size*4,life:9,maxLife:9,color:'#ffffff'});
     bt.vignetteFlash = Math.max(bt.vignetteFlash||0, 0.55);
   }
   // screenShake: 보스·엘리트는 더 크게
@@ -12342,10 +11958,7 @@ function drawBattle(){
   });
 
   // 임팩트 링: 히트/처치 지점에서 확산하는 원형 플래시
-  // ✅ [Phase 6] impactRings 렌더링 최적화: 최대 3개만 표시
-  const maxRingsToRender = Math.min(3, bt.impactRings.length);
-  for(let i=0; i<maxRingsToRender; i++){
-    const r = bt.impactRings[i];
+  bt.impactRings.forEach(r=>{
     const prog = 1 - r.life/r.maxLife;
     gctx.save();
     gctx.globalAlpha = (1-prog)*0.75;
@@ -12354,7 +11967,7 @@ function drawBattle(){
     gctx.shadowColor = r.color; gctx.shadowBlur = 10;
     gctx.beginPath(); gctx.arc(r.x, r.y, r.r, 0, Math.PI*2); gctx.stroke();
     gctx.restore();
-  }
+  });
 
   // 회전 검
   if(s.sword>0){
