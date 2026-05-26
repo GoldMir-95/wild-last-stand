@@ -10126,7 +10126,8 @@ function updateBattle() {
         e.bossBulletTimer = 0;
         Audio.sfx.phaseTransition();
         showBossPhaseTransition(2, '#f07030', '💢 PHASE 2', '보스가 격노합니다!');
-        for(let k=0;k<28;k++){ const a=k/28*Math.PI*2; spawnP(e.x+Math.cos(a)*70,e.y+Math.sin(a)*70,'#f07030',8,5); }
+        // ✅ [Phase 8] 파티클 개수 최적화: 28 → 18
+        for(let k=0;k<18;k++){ const a=k/18*Math.PI*2; spawnP(e.x+Math.cos(a)*70,e.y+Math.sin(a)*70,'#f07030',8,5); }
         bt.explosions.push({x:e.x,y:e.y,maxRadius:180,radius:0,timer:22,color:'#f07030'});
       }
       else if(isPhase3 && e.phase === 2){
@@ -10138,7 +10139,8 @@ function updateBattle() {
         e.color = '#e03030';
         Audio.sfx.phaseTransition();
         showBossPhaseTransition(3, '#e03030', '🔥 FINAL PHASE', has4Phase ? '절망이 가까워진다!' : '최후의 발악!');
-        for(let k=0;k<36;k++){ const a=k/36*Math.PI*2; spawnP(e.x+Math.cos(a)*90,e.y+Math.sin(a)*90,'#e03030',10,6); }
+        // ✅ [Phase 8] 파티클 개수 최적화: 36 → 20
+        for(let k=0;k<20;k++){ const a=k/20*Math.PI*2; spawnP(e.x+Math.cos(a)*90,e.y+Math.sin(a)*90,'#e03030',10,6); }
         bt.explosions.push({x:e.x,y:e.y,maxRadius:220,radius:0,timer:26,color:'#e03030'});
       }
       else if(isPhase4 && e.phase === 3){
@@ -10151,7 +10153,8 @@ function updateBattle() {
         e.color = '#8800ff';
         Audio.sfx.phaseTransition();
         showBossPhaseTransition(4, '#aa00ff', '☠️ DESPAIR', '절망의 영역!');
-        for(let k=0;k<48;k++){ const a=k/48*Math.PI*2; spawnP(e.x+Math.cos(a)*100,e.y+Math.sin(a)*100,'#aa00ff',12,7); }
+        // ✅ [Phase 8] 파티클 개수 최적화: 48 → 24
+        for(let k=0;k<24;k++){ const a=k/24*Math.PI*2; spawnP(e.x+Math.cos(a)*100,e.y+Math.sin(a)*100,'#aa00ff',12,7); }
         bt.explosions.push({x:e.x,y:e.y,maxRadius:300,radius:0,timer:32,color:'#aa00ff'});
         for(let k=0;k<16;k++){
           const a=(k/16)*Math.PI*2;
@@ -10769,24 +10772,23 @@ function updateBattle() {
     if(bt._swordSoundCooldown) bt._swordSoundCooldown--;
   }
 
-  // ✅ [Phase 5] 번개 최적화: sort 대신 간단한 loop로 처리
+  // ✅ [Phase 8] 번개 최적화: 거리 캐싱으로 O(n²) → O(n) 개선
   if(s.lightning>0){
     bt.lightningTimer--;
     if(bt.lightningTimer<=0){
       bt.lightningTimer=Math.max(8,55-s.lightning*8);
 
-      // 가장 가까운 적을 sort 없이 찾기 (O(n) 선택 후보)
-      let targets=[];
-      for(let j=0;j<Math.min(s.lightning+1,bt.enemies.length);j++){
-        let closest=-1, closestDist=Infinity;
-        for(let k=0;k<bt.enemies.length;k++){
-          if(targets.includes(bt.enemies[k])) continue;
-          const dx=bt.enemies[k].x-p.x,dy=bt.enemies[k].y-p.y;
-          const d2=dx*dx+dy*dy;
-          if(d2<closestDist){ closestDist=d2; closest=k; }
-        }
-        if(closest>=0) targets.push(bt.enemies[closest]);
-      }
+      // ✅ [Phase 8] 거리 사전 계산 (1회만 수행)
+      const distances = bt.enemies.map((e, idx) => {
+        const dx = e.x - p.x, dy = e.y - p.y;
+        return {idx, d2: dx*dx + dy*dy};
+      });
+
+      // ✅ [Phase 8] 거리 기준 정렬 (O(n log n))
+      distances.sort((a, b) => a.d2 - b.d2);
+
+      // ✅ [Phase 8] 상위 N개만 선택 (O(1))
+      let targets = distances.slice(0, Math.min(s.lightning+1, distances.length)).map(d => bt.enemies[d.idx]);
 
       targets.forEach(t=>{
         bt.lightningbolts.push({x1:p.x,y1:p.y,x2:t.x,y2:t.y,timer:8});
@@ -10794,19 +10796,20 @@ function updateBattle() {
         // 번개: 다단히트로 처리
         damageEnemy(t, lDmg, true);
 
-        // ✅ [Phase 5] 연쇄 강타도 최적화
+        // ✅ [Phase 8] 연쇄 강타 최적화: 거리 캐싱 적용
         if((s.chainStrike||0)>0){
-          let _cTargets=[];
-          for(let j=0;j<Math.min(s.chainStrike+1,bt.enemies.length);j++){
-            let closest=-1, closestDist=Infinity;
-            for(let k=0;k<bt.enemies.length;k++){
-              if(bt.enemies[k]===t || _cTargets.includes(bt.enemies[k])) continue;
-              const dx=bt.enemies[k].x-t.x,dy=bt.enemies[k].y-t.y;
-              const d2=dx*dx+dy*dy;
-              if(d2<closestDist){ closestDist=d2; closest=k; }
-            }
-            if(closest>=0) _cTargets.push(bt.enemies[closest]);
-          }
+          // ✅ [Phase 8] 기존 타겟 제외한 적들의 거리 계산
+          const chainDistances = bt.enemies
+            .filter(e => e !== t)
+            .map((e, idx) => {
+              const dx = e.x - t.x, dy = e.y - t.y;
+              return {enemy: e, d2: dx*dx + dy*dy};
+            });
+
+          // ✅ [Phase 8] 정렬 후 상위 N개 선택
+          let _cTargets = chainDistances.sort((a, b) => a.d2 - b.d2)
+            .slice(0, Math.min(s.chainStrike+1, chainDistances.length))
+            .map(d => d.enemy);
           _cTargets.forEach(ct=>{
             bt.lightningbolts.push({x1:t.x,y1:t.y,x2:ct.x,y2:ct.y,timer:6});
             // 연쇄 강타: 다단히트로 처리
@@ -11095,9 +11098,15 @@ function damageEnemy(e,dmg,isMultiHit=false){
   // 스케일 펄스 (피격 순간 납작 → 원래대로)
   e.hitPulse = 6;
 
-  // ✅ [Phase 5] 빈네트 플래시 클램핑 (누적 방지)
+  // ✅ [Phase 8] 빈네트 플래시 쿨타임 추가 (8프레임마다 1회만)
   if(isCrit && !isMultiHit){
-    bt.vignetteFlash = Math.min(0.6, Math.max(bt.vignetteFlash||0, 0.40)); // 최대값 제한
+    // 쿨타임 체크 및 적용
+    if(!bt._vignetteFlashCooldown || bt._vignetteFlashCooldown <= 0){
+      bt.vignetteFlash = Math.min(0.6, 0.40); // 고정값으로 설정
+      bt._vignetteFlashCooldown = 8; // 8프레임 쿨타임
+    }
+    // 쿨타임 감소
+    if(bt._vignetteFlashCooldown) bt._vignetteFlashCooldown--;
   }
 
   if(e.hp<=0){
