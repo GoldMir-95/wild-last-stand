@@ -11052,19 +11052,32 @@ function damageEnemy(e,dmg,isMultiHit=false){
     e.kby = (e.kby||0) + (dy/dist)*kbForce;
   }
 
-  // ✅ [Phase 7] 파티클 생성 최적화: 보스도 일반 조건으로 제한 (매 타격마다 생성 방지)
+  // ✅ [Phase 8] 파티클 스케줄러: 데미지 강도 + 적 타입별 주기 적용
   if(!isMultiHit){ // 다단히트는 파티클 스킵
     const particleCount = (bt.particles||[]).length;
     // 동적 임계값: 적의 수에 따라 조절
     const maxParticles = Math.max(50, 200 - bt.enemies.length*2); // 적 많으면 줄이기
 
-    // ✅ [Phase 7] 보스도 크리틱 또는 hitCount 주기로만 생성 (보스 무조건 생성 제거!)
-    if(particleCount < maxParticles && (isCrit || (e._hitCount || 0) % 3 === 0)){
+    // ✅ [Phase 8] 파티클 생성 주기 결정:
+    // - 크리틱: 매번 (hitCount 무관)
+    // - 보스 히트: 2타격마다
+    // - 엘리트: 3타격마다
+    // - 일반: 4타격마다
+    // - 높은 데미지(dmg >= 5): 추가 보너스 (-1 주기)
+    let particleChance = true;
+    if(!isCrit){
+      const baseChance = e.isBoss ? 2 : e.isEliteBoss ? 3 : 4;
+      const hitCount = (e._hitCount || 0) % Math.max(1, baseChance - (dmg >= 5 ? 1 : 0));
+      particleChance = hitCount === 0;
+    }
+
+    if(particleCount < maxParticles && particleChance){
       const sparkColor = e.frozen>0?'#a8e8ff': gs.act===3?'#ff8840': gs.act===2?'#88ccff':'#ffe080';
       // ✅ [Phase 7] dy, dx 정의 위치 수정: 모든 경우에 정의되도록
       const dy=e.y-gs.player.y, dx=e.x-gs.player.x;
       const hitAngle = Math.atan2(dy, dx); // 한 번만 계산
-      const sparkCount = isCrit ? 6 : e.isBoss ? 4 : 3;
+      // ✅ [Phase 8] 크리틱 시 파티클 개수 증가, 일반은 감소
+      const sparkCount = isCrit ? 8 : e.isBoss ? 4 : e.isEliteBoss ? 3 : 2;
       for(let k=0;k<sparkCount;k++){
         const a = hitAngle + (k-(sparkCount-1)*0.5)*0.4 + (Math.random()-0.5)*0.15;
         const spd = 3.5 + Math.random()*4;
