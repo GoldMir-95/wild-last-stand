@@ -148,6 +148,7 @@ canvas{display:block;}
 @keyframes cardPickFlash{0%{box-shadow:0 0 0 0 rgba(255,255,255,0)}30%{box-shadow:0 0 40px 16px rgba(255,255,255,0.55)}100%{box-shadow:0 0 0 0 rgba(255,255,255,0);opacity:0;transform:scale(1.08)}}
 @keyframes epicGlow{0%,100%{box-shadow:0 0 22px rgba(155,110,232,0.3),0 0 0 1px rgba(155,110,232,0.15)}50%{box-shadow:0 0 36px rgba(155,110,232,0.55),0 0 0 2px rgba(155,110,232,0.35)}}
 @keyframes rareGlow{0%,100%{box-shadow:0 0 18px rgba(201,168,76,0.25)}50%{box-shadow:0 0 30px rgba(201,168,76,0.5)}}
+@keyframes tutorialCardSlideIn{0%{opacity:0;transform:translateY(30px) scale(0.92)}70%{transform:translateY(-4px) scale(1.02)}100%{opacity:1;transform:translateY(0) scale(1)}}
 .card{width:155px;min-height:185px;border-radius:14px;padding:15px 12px;cursor:pointer;
   transition:transform 0.18s ease, box-shadow 0.2s ease, border-color 0.2s ease;display:flex;flex-direction:column;
   align-items:center;text-align:center;position:relative;overflow:hidden;opacity:0;
@@ -2574,6 +2575,21 @@ function showScreen(id) {
   const _showGb = (id === 'shopScreen' || id === 'restScreen' || id === 'cardScreen' || id === 'deckScreen');
   _gb.style.display = _showGb ? 'flex' : 'none';
   if (_showGb) updateGrowthBar();
+
+  // 튜토리얼 자동 진행
+  if (gs._tutorialActive) {
+    if (id === 'cardScreen' && gs._tutorialStep === 1) {
+      // 카드 선택 튜토리얼: 150ms 후 자동으로 표시
+      setTimeout(() => {
+        showTutorialOverlay(1);
+      }, 150);
+    } else if (id === 'restScreen' && gs._tutorialStep === 3) {
+      // 휴식처 튜토리얼: 150ms 후 자동으로 표시
+      setTimeout(() => {
+        showTutorialOverlay(3);
+      }, 150);
+    }
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -5020,7 +5036,201 @@ function startNewRun() {
     p.hp = p.maxHp;
   }
   // 저주 초기 효과 적용
+
+  // ─ 첫 게임 튜토리얼 체크 ─
+  if (gs.selectedChar && localStorage.getItem('tutorialCompleted') !== 'true') {
+    gs._tutorialActive = true;
+    gs._tutorialStep = 0; // 0: 이동 조작, 1: 카드 선택, 2: 카드 중복, 3: 휴식처, 4: 완료
+  }
+
   showMapScreen();
+}
+
+// ═══════════════════════════════════════════════
+//  TUTORIAL SYSTEM
+// ═══════════════════════════════════════════════
+const tutorialSteps = [
+  {
+    step: 0,
+    title: '🎮 화면 조작',
+    description: '화면을 클릭하거나 터치해서 캐릭터를 움직여봐!',
+    target: 'movement',
+    autoComplete: false,
+    delay: 500,
+  },
+  {
+    step: 1,
+    title: '⚔️ 적 처치',
+    description: '적을 처치하면 카드 3장이 나타나. 하나를 선택해봐!',
+    target: 'cardSelection',
+    autoComplete: false,
+    delay: 500,
+  },
+  {
+    step: 2,
+    title: '💪 카드 강화',
+    description: '같은 카드를 여러 번 선택하면 더 강해진다!',
+    target: 'cardDuplicate',
+    autoComplete: false,
+    delay: 500,
+  },
+  {
+    step: 3,
+    title: '🏥 휴식처',
+    description: '지도에서 🏥를 선택하면 체력을 회복할 수 있어!',
+    target: 'restLocation',
+    autoComplete: true,
+    delay: 2000,
+  },
+  {
+    step: 4,
+    title: '🎉 첫 게임 완료!',
+    description: '튜토리얼이 끝났어! 이제 자유롭게 플레이해봐.',
+    target: 'completion',
+    autoComplete: true,
+    delay: 3000,
+  },
+];
+
+// 튜토리얼 오버레이 표시
+function showTutorialOverlay(step) {
+  if (!gs._tutorialActive || step >= tutorialSteps.length) return;
+
+  const tutStep = tutorialSteps[step];
+
+  // 기존 튜토리얼 오버레이 제거
+  const existing = document.getElementById('_tutorialOverlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = '_tutorialOverlay';
+  overlay.style.cssText = `
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+  `;
+
+  const card = document.createElement('div');
+  card.style.cssText = `
+    background: linear-gradient(135deg, #0a0f1f 0%, #12192f 100%);
+    border: 2px solid #2a4a7f;
+    border-radius: 20px;
+    padding: 40px;
+    max-width: 450px;
+    text-align: center;
+    color: #d8e4f0;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+    animation: tutorialCardSlideIn 0.4s cubic-bezier(0.34, 1.4, 0.64, 1);
+  `;
+
+  card.innerHTML = `
+    <div style="font-size: 48px; margin-bottom: 20px;">${tutStep.title.split(' ')[0]}</div>
+    <div style="font-size: 20px; font-weight: bold; color: #4a9eff; margin-bottom: 15px;">
+      ${tutStep.title.split(' ').slice(1).join(' ')}
+    </div>
+    <div style="font-size: 14px; color: #8aa0b8; line-height: 1.6; margin-bottom: 25px;">
+      ${tutStep.description}
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <button onclick="skipTutorial()" style="
+        flex: 1;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #7a9ab8;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.2s;
+      " onmouseover="this.style.background='rgba(255, 255, 255, 0.12)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.08)'">
+        건너뛰기
+      </button>
+      <button onclick="completeTutorialStep()" style="
+        flex: 1;
+        padding: 12px;
+        background: linear-gradient(135deg, #4a9eff 0%, #2a7adf 100%);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 14px;
+        transition: all 0.2s;
+        box-shadow: 0 4px 12px rgba(74, 158, 255, 0.3);
+      " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+        알겠어요
+      </button>
+    </div>
+    <div style="margin-top: 20px; font-size: 12px; color: #6b7a8d;">
+      ${step + 1} / ${tutorialSteps.length}
+    </div>
+  `;
+
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+
+  // 페이드인
+  setTimeout(() => overlay.style.opacity = '1', 10);
+}
+
+// 튜토리얼 단계 완료
+function completeTutorialStep() {
+  if (!gs._tutorialActive) return;
+
+  const overlay = document.getElementById('_tutorialOverlay');
+  if (overlay) {
+    overlay.style.opacity = '0';
+    setTimeout(() => {
+      overlay.remove();
+      gs._tutorialStep++;
+
+      if (gs._tutorialStep >= tutorialSteps.length) {
+        completeTutorial();
+      } else {
+        showTutorialOverlay(gs._tutorialStep);
+      }
+    }, 300);
+  }
+}
+
+// 튜토리얼 건너뛰기
+function skipTutorial() {
+  if (!gs._tutorialActive) return;
+
+  const overlay = document.getElementById('_tutorialOverlay');
+  if (overlay) {
+    overlay.style.opacity = '0';
+    setTimeout(() => overlay.remove(), 300);
+  }
+
+  completeTutorial();
+}
+
+// 튜토리얼 완료
+function completeTutorial() {
+  gs._tutorialActive = false;
+  localStorage.setItem('tutorialCompleted', 'true');
+
+  // 완료 메시지
+  showToast('🎉 튜토리얼 완료! 이제 자유롭게 플레이해봐!', 2500);
+}
+
+// 튜토리얼 단계별 자동 진행 (선택적)
+function autoProgressTutorial() {
+  if (!gs._tutorialActive || gs._tutorialStep >= tutorialSteps.length) return;
+
+  const tutStep = tutorialSteps[gs._tutorialStep];
+  if (tutStep.autoComplete) {
+    setTimeout(() => {
+      completeTutorialStep();
+    }, tutStep.delay);
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -5073,6 +5283,13 @@ function showMapScreen() {
     drawMap();
   }
   mapLoop();
+
+  // 튜토리얼 표시 (첫 게임인 경우)
+  if (gs._tutorialActive && gs._tutorialStep === 0) {
+    setTimeout(() => {
+      showTutorialOverlay(0);
+    }, 600);
+  }
 }
 
 function updateMapGold() {
@@ -10015,6 +10232,11 @@ function killEnemy(e){
   if(!e.isSplit){
     gs.player.kills++;
     gs.totalKills++;
+
+    // 튜토리얼: 첫 적 처치 시 카드 선택 튜토리얼로 진행
+    if (gs._tutorialActive && gs._tutorialStep === 0 && gs.totalKills === 1) {
+      completeTutorialStep(); // 이동 조작 단계 완료 → 적 처치 단계로
+    }
   }
   // 💀 정예 침입 이벤트 적 처치 보너스
   if (e._eventGoldBonus > 0) {
@@ -13946,6 +14168,11 @@ function showCardSelection(onDone, opts) {
           }, 350);
           playSound(880,0.25,'sine',0.08);
           setTimeout(()=>playSound(1100,0.2,'sine',0.06),80);
+
+          // 튜토리얼: 두 번째 카드 선택 시 중복 강화 튜토리얼로 진행
+          if (gs._tutorialActive && gs._tutorialStep === 2) {
+            setTimeout(() => completeTutorialStep(), 600);
+          }
         }
       }
       if(typeof updateGrowthBar==='function') setTimeout(updateGrowthBar, 100);
