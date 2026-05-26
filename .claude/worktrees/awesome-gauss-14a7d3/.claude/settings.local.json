@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk -F: '$2 >= 8490 && $2 <= 8600 {print}')",
+      "Bash(awk -F: 'NR>1 {n=$1+0; if\\(n>=8490 && n<=8600\\) print}')",
+      "Bash(Select-String -Path \"C:\\\\Users\\\\hyeonjiph\\\\Desktop\\\\my-game\\\\SURVIVOR\\\\survivor.html\" -Pattern \"SYNERGIES\")",
+      "Bash(Select-Object -First 5)",
+      "Bash(Format-Table LineNumber, Line -AutoSize)",
+      "Bash(wc -l \"/mnt/c/Users/hyeonjiph/Desktop/my-game/SURVIVOR/survivor.html\")",
+      "PowerShell(\\(Get-Content \"C:\\\\Users\\\\hyeonjiph\\\\Desktop\\\\my-game\\\\SURVIVOR\\\\survivor.html\" | Measure-Object -Line\\).Lines)",
+      "PowerShell(Get-Content \"C:\\\\Users\\\\hyeonjiph\\\\Desktop\\\\my-game\\\\SURVIVOR\\\\survivor.html\" -Tail 10 | ForEach-Object { $_.Length })",
+      "PowerShell($content = Get-Content \"C:\\\\Users\\\\hyeonjiph\\\\Desktop\\\\my-game\\\\SURVIVOR\\\\survivor.html\" -Raw; $lines = $content -split \"`n\"; $lines.Count; $lines[-5..-1])",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(gh pr *)",
+      "Bash(where gh *)",
+      "Read(//usr/local/bin/**)",
+      "Read(//c/Users/hyeonjiph/bin/**)",
+      "Read(//c/Users/hyeonjiph/**)",
+      "Bash(find \"/c/Program Files/GitHub CLI\" -name \"gh.exe\" 2>/dev/null; find \"/c/Users/hyeonjiph/AppData\" -name \"gh.exe\" 2>/dev/null | head -3; ls \"/c/Program Files/GitHub CLI/\" 2>/dev/null)",
+      "Bash(git config *)",
+      "Bash(git remote *)",
+      "Bash(cmdkey /list)",
+      "Bash(powershell.exe -Command \"[System.Net.CredentialCache]::DefaultNetworkCredentials\")",
+      "Bash(git ls-remote *)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(ipconfig)",
+      "Bash(findstr \"IPv4\")",
+      "Bash(npx ngrok *)",
+      "Bash(node -e ' *)",
+      "Bash(grep -v \"//\")",
+      "Bash(grep -c \"^\\\\s*{$\\\\|name:'\" survivor.html)",
+      "Bash(awk 'NR>=12698 && /^\\\\s+name:/' survivor.html)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(npx serve *)",
+      "WebSearch"
+    ]
+  }
+}

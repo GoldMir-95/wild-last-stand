@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\hyeonjiph\\\\Desktop\\\\my-game\\\\SURVIVOR\" -File)",
+      "Bash(Select-Object Name, Length)",
+      "Bash(node --check survivor.html)",
+      "Bash(node -e ' *)",
+      "WebFetch(domain:www.youtube.com)",
+      "Bash(sed -i \"s/if \\(it.type === 'hp'\\)   hpGain   += 24;/if \\(it.type === 'hp'\\)   hpGain   += 16;/g\" \"C:/Users/hyeonjiph/Desktop/my-game/SURVIVOR/survivor.html\")",
+      "Bash(sed -i \"s/if\\(it.type==='hp'\\){p.hp=Math.min\\(p.maxHp,p.hp+24\\)/if\\(it.type==='hp'\\){p.hp=Math.min\\(p.maxHp,p.hp+16\\)/g\" \"C:/Users/hyeonjiph/Desktop/my-game/SURVIVOR/survivor.html\")",
+      "Bash(wc -l \"/mnt/c/Users/hyeonjiph/Desktop/my-game/SURVIVOR/survivor.html\")",
+      "PowerShell(\\(Get-Item \"C:\\\\Users\\\\hyeonjiph\\\\Desktop\\\\my-game\\\\SURVIVOR\\\\survivor.html\"\\).Length; \\(Get-Content \"C:\\\\Users\\\\hyeonjiph\\\\Desktop\\\\my-game\\\\SURVIVOR\\\\survivor.html\" | Measure-Object -Line\\).Lines)",
+      "PowerShell($path = [System.IO.Path]::Combine\\(\"C:\\\\Users\\\\hyeonjiph\\\\Desktop\\\\my-game\\\\SURVIVOR\", \"리소스\"\\); Get-ChildItem $path | Select-Object Name, Length, Extension)",
+      "Bash(ls -la \"/mnt/c/Users/hyeonjiph/Desktop/my-game/SURVIVOR/\" 2>/dev/null)",
+      "Bash(cmd /c \"dir \\\\\"C:\\\\\\\\Users\\\\\\\\hyeonjiph\\\\\\\\Desktop\\\\\\\\my-game\\\\\\\\SURVIVOR\\\\\"\")",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "mcp__Claude_in_Chrome__switch_browser",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(cat)",
+      "Read(//tmp/**)",
+      "Bash(cat > *)",
+      "WebSearch",
+      "Bash(cd /home/user && grep -n \"font-size\" survivor.html | grep -E \"px|em\" | head -50)",
+      "Bash(git add *)",
+      "Bash(git commit -m '모바일 최적화 완성: 색상 대비, 폰트 변수, 레이아웃 개선 *)",
+      "Bash(git commit -m 'HUD 여백 개선: 모바일에서 체력바가 잘리지 않도록 PAD 증가 \\(6→12px\\) *)",
+      "Bash(git commit -m '모바일 HUD 완전 수정: Canvas 너비 최적화 + 여백 증가 *)",
+      "Bash(git commit -m '모바일 mapCanvas 너비 완전 수정: 화면 전체 너비 사용 *)",
+      "Bash(git commit -m 'isMobile 판정 수정: 화면 크기 기준 추가 \\(768px\\) *)",
+      "Bash(git commit *)"
+    ]
+  }
+}
