@@ -7236,7 +7236,12 @@ function battleLost() {
     const gc = document.getElementById('gameCanvas');
     if (gc) gc.style.display = 'none';
   } catch(e) {}
-  setTimeout(()=>showGameOver(false), 800);
+  // battleAnimId 즉시 중지 - battleLoop 무한 실행 방지
+  if (battleAnimId) {
+    cancelAnimationFrame(battleAnimId);
+    battleAnimId = null;
+  }
+  setTimeout(()=>showGameOver(false), 300);
 }
 
 // ─── 부활 ───
@@ -15620,15 +15625,12 @@ function showGameOver(won) {
   if (won) { showFinalVictory(); return; }
 
   try {
-    let earnedCoins = 0;
-    try {
-      earnedCoins = earnMetaCoins();
-    } catch(e) {
-      console.warn('earnMetaCoins error:', e);
-      earnedCoins = Math.max(1, Math.floor((gs.totalKills||0)*0.2) + (gs.bossesDefeated||0)*5 + ((gs.act||1)-1)*3);
-    }
+    // 메타 코인 저장 (별도로 try/catch - 실패해도 게임오버 화면은 표시)
+    try { earnMetaCoins(); } catch(e) { console.warn('earnMetaCoins failed:', e); }
+
     const mm = String(Math.floor(gs.totalTime/60)).padStart(2,'0');
     const ss = String(gs.totalTime%60).padStart(2,'0');
+    const earnedCoins = Math.max(1, Math.floor((gs.totalKills||0)*0.2) + (gs.bossesDefeated||0)*5 + ((gs.act||1)-1)*3);
 
     // 🔥 극도로 단순한 HTML - 모바일 호환성 최대화
     const overlay = document.createElement('div');
