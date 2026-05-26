@@ -1343,7 +1343,6 @@ const SYNERGIES = [
 
 const tipMessages = {
   // 킬 콤보 메시지
-  combo_3: ['🔥 3연속!', '🎯 좋아!', '⚡ 멈추지 마!'],
   combo_5: ['🔥 5연속!', '⚡ 광란 모드', '🌟 이제 시작이지!'],
   combo_8: ['🔥 8연속!', '👑 미쳤다!', '⚡ 강력해...'],
   combo_10: ['🔥 10연속!', '✨ 정점이다!', '💥 멈출 수 없다'],
@@ -7436,16 +7435,11 @@ function showBattleEventBanner(ev) {
 function spawnEnemiesForWave() {
   const w = bt.wave, diff = bt.diffMult, act = gs.act;
 
-  // 웨이브별 팁 메시지
-  if (w === 1) {
+  // 웨이브별 팁 메시지 (첫 웨이브만 표시 - 빈도 조정)
+  if (w === 1 && !bt._waveStartTipShown) {
+    bt._waveStartTipShown = true;
     const tip = getGameTip('wave_start');
     if (tip) setTimeout(() => showToast(tip, 1000), 100);
-  } else if (w === bt.wavesTotal) {
-    const tip = getGameTip('wave_last');
-    if (tip) setTimeout(() => showToast(tip, 1200), 100);
-  } else if (bt.isBoss) {
-    const tip = getGameTip('wave_boss');
-    if (tip) setTimeout(() => showToast(tip, 1300), 100);
   }
 
   // 화면 내 일반몹 수 상한 — 초과 시 스폰 스킵 (성능 보호)
@@ -10493,9 +10487,9 @@ function killEnemy(e){
       completeTutorialStep(); // 이동 조작 단계 완료 → 적 처치 단계로
     }
 
-    // 킬 콤보 팁 표시
+    // 킬 콤보 팁 표시 (5연속 이상만 - 빈도 조정)
     const comboKills = gs.player.kills - (bt._lastComboBreakKill || 0);
-    if (comboKills === 3 || comboKills === 5 || comboKills === 8 || comboKills === 10) {
+    if (comboKills === 5 || comboKills === 8 || comboKills === 10) {
       const tip = getGameTip('combo_' + comboKills);
       if (tip) showToast(tip, 1200);
     }
@@ -14467,8 +14461,8 @@ function showCardSelection(onDone, opts) {
         const names = newSyns.map(s=>s.emoji+' '+s.name).join(', ');
         setTimeout(() => showToast(`✨ 시너지 발동! ${names}`, 2500), 400);
         [660,784,988].forEach((f,i)=>setTimeout(()=>playSound(f,0.2,'sine',0.07),i*80));
-        // 시너지별 감정적 팁 메시지 표시
-        if (newSyns.length > 0) {
+        // 시너지별 감정적 팁 메시지 표시 (50% 확률 - 빈도 조정)
+        if (newSyns.length > 0 && Math.random() < 0.5) {
           const firstSyn = newSyns[0];
           const synergyTip = getGameTip('synergy_' + firstSyn.id);
           if (synergyTip) {
