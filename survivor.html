@@ -1338,6 +1338,84 @@ const SYNERGIES = [
 ];
 
 // ════════════════════════════════════════════════
+//  게임 내 팁/혼잣말 메시지 풀 시스템
+// ════════════════════════════════════════════════
+
+const tipMessages = {
+  // 킬 콤보 메시지
+  combo_3: ['🔥 3연속!', '🎯 좋아!', '⚡ 멈추지 마!'],
+  combo_5: ['🔥 5연속!', '⚡ 광란 모드', '🌟 이제 시작이지!'],
+  combo_8: ['🔥 8연속!', '👑 미쳤다!', '⚡ 강력해...'],
+  combo_10: ['🔥 10연속!', '✨ 정점이다!', '💥 멈출 수 없다'],
+
+  // 시너지 발동 메시지
+  synergy_stormShooter: ['✨ 폭풍 사수!', '🌪️ 강한 바람!', '⚡ 위력적이다!'],
+  synergy_blizzard: ['❄️ 한파 완성!', '🧊 얼어붙는다', '❄️ 이제 무적인가'],
+  synergy_multishot: ['💥 멀티샷!', '🌊 탄환의 폭풍', '⚡ 미친 연사다'],
+  synergy_piercing: ['💠 관통!', '⚔️ 뚫고 지나간다', '→→→ 끝이 없네'],
+  synergy_critThunder: ['💢⚡ 천둥 치명타!', '✨ 하늘의 분노!', '🌩️ 강력하군'],
+  synergy_goldenRain: ['🪙🌧️ 황금비!', '💰 부자 되겠는데?', '✨ 금이 쏟아진다'],
+  synergy_poisonBoom: ['☠️💥 독 폭발!', '🧪 독 구름이...', '✨ 퍼져나간다'],
+  synergy_homingCrit: ['🎯💢 정조준!', '✨ 정확하군', '💥 강력한 타격'],
+  synergy_thunderBlizzard: ['⛈️❄️ 뇌빙 폭풍!', '🌪️ 극한의 힘!', '✨ 완벽하다'],
+  synergy_fireVenom: ['🔥☠️ 불꽃 독안개!', '🧪 치명적이네', '💥 강력하군'],
+  synergy_berserkerBlade: ['🔥⚔️ 전투 광기!', '💪 광전사 모드!', '⚡ 미친 데미지!'],
+
+  // 웨이브 시작 메시지
+  wave_start: ['시작해보자', '🎮 올라가자', '간단하네'],
+  wave_last: ['마지막이야!', '🔥 집중하자!', '마무리다!'],
+  wave_boss: ['👑 보스가...', '⚔️ 강력하다!', '💥 정말인가'],
+
+  // 상황 조언 메시지
+  lowHp: ['⚠️ 위험하다!', '💪 버텨!', '🏥 복구할 곳...'],
+  strongBuild: ['💥 정말 강해!', '🚀 이제 괜찮겠는데?', '⚔️ 완벽이다'],
+  encourage: ['💪 할 수 있어!', '🌟 계속 가자!', '👑 최고야!', '🔥 화이팅!', '✨ 좋아, 계속!'],
+};
+
+// 쿨타임 설정 (밀리초)
+const tipCooldownDuration = {
+  lowHpWarning: 8000,
+  encouragement: 15000,
+  combo: 500,
+};
+
+// 쿨타임 추적
+let tipCooldowns = {};
+
+// 게임 팁 제공 함수
+function getGameTip(tipType, contextData = {}) {
+  const pool = tipMessages[tipType];
+  if (!pool || pool.length === 0) return null;
+
+  const randomIdx = Math.floor(Math.random() * pool.length);
+  let msg = pool[randomIdx];
+
+  // 변수 치환
+  if (contextData.count) msg = msg.replace('{count}', contextData.count);
+  if (contextData.name) msg = msg.replace('{name}', contextData.name);
+
+  return msg;
+}
+
+// 쿨타임 체크와 함께 게임 팁 표시
+function showGameTipIfReady(tipType, cooldownKey, contextData = {}) {
+  const lastTime = tipCooldowns[cooldownKey] || 0;
+  const cooldownMs = tipCooldownDuration[cooldownKey] || 8000;
+
+  if (Date.now() - lastTime < cooldownMs) {
+    return false;  // 쿨타임 중
+  }
+
+  const tip = getGameTip(tipType, contextData);
+  if (tip) {
+    showToast(tip, 1500);
+    tipCooldowns[cooldownKey] = Date.now();
+    return true;
+  }
+  return false;
+}
+
+// ════════════════════════════════════════════════
 //  i18n — 언어 설정 (한국어 / English)
 // ════════════════════════════════════════════════
 let LANG = localStorage.getItem('penguinSpireLang') || 'ko';
@@ -7358,6 +7436,18 @@ function showBattleEventBanner(ev) {
 function spawnEnemiesForWave() {
   const w = bt.wave, diff = bt.diffMult, act = gs.act;
 
+  // 웨이브별 팁 메시지
+  if (w === 1) {
+    const tip = getGameTip('wave_start');
+    if (tip) setTimeout(() => showToast(tip, 1000), 100);
+  } else if (w === bt.wavesTotal) {
+    const tip = getGameTip('wave_last');
+    if (tip) setTimeout(() => showToast(tip, 1200), 100);
+  } else if (bt.isBoss) {
+    const tip = getGameTip('wave_boss');
+    if (tip) setTimeout(() => showToast(tip, 1300), 100);
+  }
+
   // 화면 내 일반몹 수 상한 — 초과 시 스폰 스킵 (성능 보호)
   const maxOnScreen = act === 1 ? 18 : act === 2 ? 13 : 10;
   const curNormal = bt.enemies.filter(e => !e.isBoss && !e.isEliteBoss).length;
@@ -10401,6 +10491,13 @@ function killEnemy(e){
     // 튜토리얼: 첫 적 처치 시 카드 선택 튜토리얼로 진행
     if (gs._tutorialActive && gs._tutorialStep === 0 && gs.totalKills === 1) {
       completeTutorialStep(); // 이동 조작 단계 완료 → 적 처치 단계로
+    }
+
+    // 킬 콤보 팁 표시
+    const comboKills = gs.player.kills - (bt._lastComboBreakKill || 0);
+    if (comboKills === 3 || comboKills === 5 || comboKills === 8 || comboKills === 10) {
+      const tip = getGameTip('combo_' + comboKills);
+      if (tip) showToast(tip, 1200);
     }
   }
   // 💀 정예 침입 이벤트 적 처치 보너스
@@ -14370,6 +14467,14 @@ function showCardSelection(onDone, opts) {
         const names = newSyns.map(s=>s.emoji+' '+s.name).join(', ');
         setTimeout(() => showToast(`✨ 시너지 발동! ${names}`, 2500), 400);
         [660,784,988].forEach((f,i)=>setTimeout(()=>playSound(f,0.2,'sine',0.07),i*80));
+        // 시너지별 감정적 팁 메시지 표시
+        if (newSyns.length > 0) {
+          const firstSyn = newSyns[0];
+          const synergyTip = getGameTip('synergy_' + firstSyn.id);
+          if (synergyTip) {
+            setTimeout(() => showToast(synergyTip, 1800), 700);
+          }
+        }
         // 드라마틱 배너
         const bn = document.createElement('div');
         bn.style.cssText = `position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.6);z-index:9000;
