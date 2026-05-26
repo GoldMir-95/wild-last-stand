@@ -9328,6 +9328,15 @@ function updateBattle() {
   if (bt.comboDisplay > 0) bt.comboDisplay--;
 
   const p = gs.player, s = gs.skills;
+
+  // ── 저체력 경고 시스템 (HP < 30%) ──
+  if (p && p.hp > 0 && p.maxHp > 0) {
+    const hpPercent = p.hp / p.maxHp;
+    if (hpPercent < 0.3) {
+      showGameTipIfReady('lowHp', 'lowHpWarning');
+    }
+  }
+
   // 유물 프레임 틱
   tickRelics(bt);
   // 미니 도전 타이머
@@ -16170,23 +16179,23 @@ function showGameOver(won) {
     overlay.id = '_deathOverlay';
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;background:rgba(4,6,14,0.96);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.3s;overflow-y:auto;padding:20px 0;';
 
-    // 마무리 멘트 - 스파이어 정복을 향한 동물 캐릭터의 여정을 담은 메시지
+    // 마무리 멘트 - 야생의 최후 저항에서 동물 캐릭터의 여정을 담은 메시지
     const _dPool = [
-      '이 층은 너무 강했네. 다음 도전에서 더 강한 힘을 모으자.',
-      '스파이어의 정상은 아직 멀었다. 하지만 넌 분명 더 강해질 수 있어.',
-      '패배는 성장의 발판이다. 이 힘으로 다시 올라가자.',
-      '여기까지 온 것도 놀라운 업적이야. 다음엔 더 높이 도달할 거야.',
+      '이 야생은 너무 추웠네. 다음 도전에서 더 강한 힘을 모으자.',
+      '야생의 최후 저항은 아직 계속된다. 하지만 넌 분명 더 강해질 수 있어.',
+      '패배는 성장의 밑거름이다. 이 힘으로 다시 일어나자.',
+      '여기까지 온 것도 놀라운 생존 기록이야. 다음엔 더 멀리 갈 거야.',
       '강한 적도 경험이야. 기억하고 돌아올 때 더 나을 거다.',
       '새로운 룬을 찾고, 더 나은 빌드로 돌아오자.',
       '이 패배가 너를 더욱 강하게 만들 거야. 분명히.',
-      '스파이어의 모든 층을 정복하는 날까지, 포기하지 말자.',
+      '야생을 정복하는 날까지, 포기하지 말자.',
       '강한 보스도, 강한 적도 우린 언젠가 이길 수 있어.',
       '지금은 아니어도 괜찮아. 다시 도전할 기회는 많아.',
       '이번 런이 최선이 아니었어. 더 나은 시작을 준비하자.',
-      '스파이어 정상의 그 보스... 다음엔 분명 이길 거야.',
+      '야생의 왕... 다음엔 분명 그 자리가 넌 거야.',
       '네 힘은 충분하다. 다만 타이밍이 아닐 뿐이야.',
-      '한 걸음씩 더 높이... 다시 시작해보자.',
-      '동물들의 생존 전쟁에서, 넌 충분히 잘해냈어. 다음 도전으로!'
+      '한 발씩 더 멀리... 다시 시작해보자.',
+      '야생의 생존 전쟁에서, 넌 충분히 잘해냈어. 다음 도전으로!'
     ];
     const deathMsg = _dPool[Math.floor(Math.random() * _dPool.length)];
 
