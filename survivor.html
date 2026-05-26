@@ -566,6 +566,12 @@ canvas{display:block;}
   #growthBar .gb-gold{font-size:10px;margin-left:3px;}
   .gb-chip{font-size:9px;padding:2px 6px;gap:1px;}
 
+  /* ── 시너지 칩 스타일링 ── */
+  .gb-synergy-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;background:rgba(155,110,232,0.15);border:1px solid rgba(155,110,232,0.3);font-size:9px;margin-right:6px;color:#d8e4f0;white-space:nowrap;}
+  .gb-synergy-chip.active{background:rgba(155,110,232,0.4);border:1px solid rgba(155,110,232,0.6);color:#c9a8ff;font-weight:bold;}
+  .gb-synergy-chip.incomplete{opacity:0.6;background:rgba(155,110,232,0.08);}
+  .gb-synergy-progress{font-size:8px;color:rgba(160,180,210,0.6);margin-left:2px;}
+
   /* ── iOS 하단 Safe Area 대응 ── */
   .lb-nav{padding-bottom:max(env(safe-area-inset-bottom,0px),6px);}
 
@@ -848,6 +854,9 @@ canvas{display:block;}
   </div>
   <div class="gb-row" id="gbRelicRow" style="display:none;">
     <span class="gb-label">아티팩트</span>
+  </div>
+  <div class="gb-row" id="gbSynergyRow" style="display:none;">
+    <span class="gb-label">시너지</span>
   </div>
 </div>
 
@@ -3202,6 +3211,68 @@ function updateGrowthBar() {
       relicRow.style.display = 'none';
     }
   }
+
+  // 시너지 행 업데이트
+  updateSynergyRow();
+}
+
+// ── 시너지 행 업데이트 ──
+function updateSynergyRow() {
+  if (!gs || !gs.deck) return;
+
+  const synergyRow = document.getElementById('gbSynergyRow');
+  if (!synergyRow) return;
+
+  // 활성 시너지 가져오기
+  const active = getActiveSynergies();
+  const deckIds = new Set(gs.deck.map(c => c.id));
+
+  // 모든 시너지의 진행도 계산
+  const synergyProgress = SYNERGIES.map(syn => {
+    const gotCount = syn.requires.filter(r => deckIds.has(r)).length;
+    const isActive = active.includes(syn);
+    return { syn, gotCount, total: syn.requires.length, isActive };
+  }).filter(p => p.gotCount > 0 || p.isActive)  // 진행도가 있거나 활성화된 시너지만 표시
+    .sort((a, b) => {
+      // 활성화된 시너지를 먼저 표시
+      if (a.isActive && !b.isActive) return -1;
+      if (!a.isActive && b.isActive) return 1;
+      // 그 다음 완성도 순서로 정렬 (가장 완성에 가까운 것 먼저)
+      return (b.gotCount / b.total) - (a.gotCount / a.total);
+    });
+
+  // 표시할 시너지가 없으면 행 숨기기
+  if (synergyProgress.length === 0) {
+    synergyRow.style.display = 'none';
+    return;
+  }
+
+  // 최대 3개 시너지만 표시 (화면 공간 절약)
+  const toShow = synergyProgress.slice(0, 3);
+
+  // 시너지 행 내용 업데이트
+  synergyRow.style.display = 'flex';
+  synergyRow.innerHTML = '<span class="gb-label">시너지</span>';
+
+  toShow.forEach(({ syn, gotCount, total, isActive }) => {
+    const chip = document.createElement('span');
+    chip.className = 'gb-synergy-chip' + (isActive ? ' active' : ' incomplete');
+
+    // 활성 시너지: 이모지 + 이름
+    // 미완성 시너지: 이모지 + 진행도 (e.g., "2/3")
+    if (isActive) {
+      chip.textContent = syn.emoji + ' ' + syn.name;
+      chip.title = syn.desc;
+    } else {
+      chip.innerHTML = syn.emoji + ' <span class="gb-synergy-progress">' + gotCount + '/' + total + '</span>';
+      chip.title = syn.name + ' - 필요: ' + syn.requires.filter(r => !deckIds.has(r)).map(r => {
+        const card = CARDS.find(c => c.id === r);
+        return card ? card.emoji : r;
+      }).join(', ');
+    }
+
+    synergyRow.appendChild(chip);
+  });
 }
 
 // ── Toast ──
