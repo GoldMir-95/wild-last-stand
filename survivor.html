@@ -1376,6 +1376,7 @@ const tipCooldownDuration = {
   lowHpWarning: 8000,
   encouragement: 15000,
   combo: 500,
+  strongBuildTip: 20000,  // 강력한 빌드 격려 (20초 쿨타임)
 };
 
 // 쿨타임 추적
@@ -1411,6 +1412,26 @@ function showGameTipIfReady(tipType, cooldownKey, contextData = {}) {
     tipCooldowns[cooldownKey] = Date.now();
     return true;
   }
+  return false;
+}
+
+// 강력한 빌드 격려 메시지 함수
+function checkAndEncourageStrongBuild(activeSynergies = null) {
+  const active = activeSynergies || getActiveSynergies();
+
+  // 조건 1: 활성 시너지 2개 이상 → 강력한 빌드
+  if (active.length >= 2) {
+    showGameTipIfReady('strongBuild', 'strongBuildTip');
+    return true;
+  }
+
+  // 조건 2: 특정 강력한 시너지 활성화 → 격려
+  const powerfulSyns = ['storm_gunner', 'gravity_well', 'chain_explosion', 'gunslinger'];
+  if (active.some(s => powerfulSyns.includes(s.id))) {
+    showGameTipIfReady('strongBuild', 'strongBuildTip');
+    return true;
+  }
+
   return false;
 }
 
@@ -14478,6 +14499,8 @@ function showCardSelection(onDone, opts) {
             setTimeout(() => showToast(synergyTip, 1800), 700);
           }
         }
+        // 강력한 빌드 격려 메시지 (1초 뒤 표시)
+        setTimeout(() => checkAndEncourageStrongBuild(newSyns), 1000);
         // 드라마틱 배너
         const bn = document.createElement('div');
         bn.style.cssText = `position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.6);z-index:9000;
