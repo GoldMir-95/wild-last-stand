@@ -159,6 +159,8 @@ canvas{display:block;}
 .card.rare{border:2px solid #c9a84c;background:rgba(201,168,76,0.10);animation-name:cardSlideIn,rareGlow;animation-duration:0.4s,2s;animation-timing-function:cubic-bezier(0.34,1.4,0.64,1),ease-in-out;animation-fill-mode:both;animation-iteration-count:1,infinite;}
 .card.epic{border:2.5px solid #b888ff;background:rgba(155,110,232,0.14);animation-name:cardSlideIn,epicGlow;animation-duration:0.4s,1.6s;animation-timing-function:cubic-bezier(0.34,1.4,0.64,1),ease-in-out;animation-fill-mode:both;animation-iteration-count:1,infinite;}
 .card.curse{border:2px solid #e05050;background:rgba(224,80,80,0.10);}
+.card-recommend-badge{position:absolute;top:8px;right:8px;background:linear-gradient(135deg,rgba(255,200,50,0.9),rgba(255,100,100,0.8));border:1.5px solid rgba(255,180,0,0.7);border-radius:8px;padding:5px 10px;font-size:10px;font-weight:bold;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.6);box-shadow:0 3px 12px rgba(255,150,0,0.5);animation:badgePulse 2s ease-in-out infinite;pointer-events:none;z-index:10;white-space:nowrap;min-width:fit-content;}
+@keyframes badgePulse{0%,100%{transform:scale(1);box-shadow:0 3px 12px rgba(255,150,0,0.5);}50%{transform:scale(1.08);box-shadow:0 5px 20px rgba(255,150,0,0.7);}}
 .card:hover{transform:translateY(-4px) scale(1.03);}
 .card:hover.common{box-shadow:0 6px 24px rgba(107,122,141,0.5);border-color:#8a9ab0;}
 .card:hover.uncommon{box-shadow:0 0 22px rgba(74,158,255,0.5);border-color:#70b8ff;}
@@ -3273,6 +3275,73 @@ function updateSynergyRow() {
 
     synergyRow.appendChild(chip);
   });
+}
+
+// ── 카드 추천 시스템 ──
+/** 현재 빌드를 분석하여 카드 추천 기준 판단 */
+function analyzeCurrentBuild() {
+  if (!gs || !gs.deck) return { synergies: [], incompleteSynergies: [], deckSize: 0 };
+
+  const deckIds = new Set(gs.deck.map(c => c.id));
+  const activeSyns = getActiveSynergies();
+
+  // 진행 중인 시너지 찾기
+  const incompleteSyns = SYNERGIES.filter(syn => {
+    const hasRequirement = syn.requires.some(r => deckIds.has(r));
+    const isIncomplete = !syn.requires.every(r => deckIds.has(r));
+    return hasRequirement && isIncomplete;
+  }).map(syn => {
+    const have = syn.requires.filter(r => deckIds.has(r)).length;
+    return { syn, have, total: syn.requires.length, progress: have / syn.requires.length };
+  }).sort((a, b) => b.progress - a.progress);
+
+  return {
+    activeSynergies: activeSyns,
+    incompleteSynergies: incompleteSyns,
+    deckSize: gs.deck.length,
+    topIncomplete: incompleteSyns[0] || null
+  };
+}
+
+/** 카드에 대한 추천 이유 반환 */
+function getCardRecommendationReason(cardId) {
+  const preview = getSynergyPreview(cardId);  // 새로 발동할 시너지
+  const contrib = getSynergyContribution(cardId);  // 기여할 시너지
+
+  const reasons = [];
+
+  // 1순위: 시너지 발동
+  if (preview && preview.length > 0) {
+    reasons.push({
+      type: 'synergy-unlock',
+      priority: 0,  // 최고 우선순위
+      icon: '🎯',
+      text: `✨ ${preview[0].emoji} ${preview[0].name} 발동!`,
+      color: '#ffc800'
+    });
+  }
+
+  // 2순위: 진행 중인 시너지 완성 (가장 진행도 높은 것)
+  if (contrib && contrib.length > 0) {
+    const topContrib = contrib.sort((a, b) =>
+      (b.have / b.total) - (a.have / a.total)
+    )[0];
+
+    reasons.push({
+      type: 'synergy-progress',
+      priority: 1,
+      icon: '📊',
+      text: `${topContrib.syn.emoji} ${topContrib.have}/${topContrib.total}`,
+      color: '#a8ff7a'
+    });
+  }
+
+  return {
+    hasRecommendation: reasons.length > 0,
+    reasons: reasons,
+    topReason: reasons.length > 0 ? reasons[0] : null,
+    score: reasons.length > 0 ? reasons[0].priority : 999
+  };
 }
 
 // ── Toast ──
@@ -14070,6 +14139,17 @@ function showCardSelection(onDone, opts) {
     let html = `<div style="font-size:14px;font-weight:700;color:#e8f0ff;margin-bottom:8px">${card.emoji} ${card.name}</div>`;
     html += `<div style="color:#8090a8;margin-bottom:8px;line-height:1.6">${card.desc}</div>`;
     html += `<div style="color:#c9a84c;font-size:11px;margin-bottom:10px">${card.effect}</div>`;
+
+    // 추천 이유 섹션
+    const recommendation = getCardRecommendationReason(card.id);
+    if (recommendation.hasRecommendation) {
+      html += `<div style="padding:8px 10px;border-radius:8px;background:rgba(255,180,50,0.12);border-left:3px solid #ffc800;margin-bottom:10px;">
+        <div style="color:#ffc800;font-weight:700;font-size:11px;margin-bottom:4px">💡 ${recommendation.reasons.length > 0 ? recommendation.reasons[0].icon : '⭐'} 추천</div>
+        <div style="color:#f0d080;font-size:10px;line-height:1.4">
+          ${recommendation.reasons.map(r => r.text).join('<br>')}
+        </div>
+      </div>`;
+    }
     if (preview.length > 0) {
       html += preview.map(s =>
         `<div style="padding:8px 10px;border-radius:8px;background:${s.color}18;border:1px solid ${s.color}55;margin-bottom:8px">
@@ -14151,6 +14231,9 @@ function showCardSelection(onDone, opts) {
     const preview = getSynergyPreview(card.id);
     const contrib = preview.length === 0 ? getSynergyContribution(card.id) : [];
 
+    // 카드 추천 점수 계산
+    const recommendation = getCardRecommendationReason(card.id);
+
     // 기본 뷰: 아이콘/이름/등급/설명/효과 + 발동 배지만
     const _isCurseCard = card.rarity === 'curse';
     el.innerHTML = `<div class="card-icon">${card.emoji}</div>
@@ -14182,6 +14265,16 @@ function showCardSelection(onDone, opts) {
         `<span style="color:${syn.color}88">${syn.emoji}</span> ${have+1}/${total}`
       ).join('<span style="color:#7a9abc;margin:0 4px">·</span>');
       el.appendChild(hint);
+    }
+
+    // 추천 배지 추가 (상단 우측 모서리)
+    if (recommendation.hasRecommendation && recommendation.topReason) {
+      const reason = recommendation.topReason;
+      const badge = document.createElement('div');
+      badge.className = 'card-recommend-badge';
+      badge.textContent = reason.icon + ' ' + reason.text;
+      badge.title = reason.type === 'synergy-unlock' ? '새로운 시너지가 발동됩니다!' : reason.type === 'synergy-progress' ? '진행 중인 시너지를 완성에 가깝게 합니다' : '추천 카드입니다';
+      el.appendChild(badge);
     }
 
     // 우클릭 — 상세 정보
