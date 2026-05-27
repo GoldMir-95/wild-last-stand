@@ -713,7 +713,7 @@ canvas{display:block;}
 </div>
 
 <!-- 전투 화면 -->
-<canvas id="gameCanvas" width="800" height="800" style="display:none;"></canvas>
+<canvas id="gameCanvas" width="800" height="800" style="display:none;position:fixed;inset:0;margin:auto;z-index:100;"></canvas>
 
 <!-- 📱 모바일 온스크린 컨트롤 -->
 <div id="mobileControls" style="display:none;position:fixed;inset:0;pointer-events:none;z-index:40;user-select:none;">
@@ -8507,6 +8507,9 @@ function playSound(f,d,t='sine',v=0.07) {
 
 /** 전투 시작. @param {boolean} isElite 엘리트 전투 여부 @param {boolean} isBoss 보스 전투 여부 */
 function startBattle(isElite, isBoss) {
+  // 게임 캔버스 표시 (마우스 이벤트 수신 필수)
+  gameCanvas.style.display = 'block';
+
   _updateBuildBadge();
   // 전투 중 DOM 배지 숨김 — 캔버스 HUD에서 표시
   const _bb = document.getElementById('_buildBadge');
@@ -9317,6 +9320,8 @@ function battleWon() {
   if (bt._battleWonDone) return; // [M4] 중복 호출 방지 — 보스 킬 직후 + wave 완료 양쪽에서 호출될 수 있음
   bt._battleWonDone = true;
   bt.won = true;
+  // 게임 캔버스 숨김 (전투 종료)
+  gameCanvas.style.display = 'none';
   stopBattleTimers();
 
   // 메모리 정리: 캐시 및 렐릭 계산 초기화
@@ -17678,6 +17683,8 @@ function showFinalVictory() {
 }
 
 function showGameOver(won) {
+  // 게임 캔버스 숨김 (게임 오버)
+  gameCanvas.style.display = 'none';
   stopBattleTimers();
   clearRunSave();
   if (won) { showFinalVictory(); return; }
@@ -17863,19 +17870,88 @@ document.addEventListener('keydown',e=>{
 });
 document.addEventListener('keyup',e=>keys[e.key]=false);
 
-// ── 마우스 움직임 추적 (게임 중 캐릭터가 마우스를 따라감) ──
+// ── 마우스 움직임 추적 (게임 중 캐릭터가 마우스를 따라감) + 툴팁 표시 ──
 gameCanvas.addEventListener('mousemove', e => {
-  if (gs.screen === '__battle__' && bt && !bt.won && !bt.paused) {
-    const rect = gameCanvas.getBoundingClientRect();
-    const scX = 800 / rect.width, scY = 800 / rect.height;
-    mousePos.x = (e.clientX - rect.left) * scX;
-    mousePos.y = (e.clientY - rect.top) * scY;
-    mousePos.active = true;
+  if (!bt || gs.screen !== '__battle__') {
+    _hideTooltip();
+    mousePos.active = false;
+    return;
   }
+
+  // 마우스 위치 업데이트 (캐릭터 이동)
+  const rect = gameCanvas.getBoundingClientRect();
+  const scX = 800 / rect.width, scY = 800 / rect.height;
+  mousePos.x = (e.clientX - rect.left) * scX;
+  mousePos.y = (e.clientY - rect.top) * scY;
+  mousePos.active = true;
+
+  // 게임 오버/일시정지 상태에서는 마우스 이동 비활성화
+  if (bt.won || bt.paused) {
+    mousePos.active = false;
+  }
+
+  // UI 툴팁 표시 로직
+  const cx = mousePos.x;
+  const cy = mousePos.y;
+
+  // 1) 스킬 아이콘 바
+  const iconPositions = bt._iconHUDPos || [];
+  for (const pos of iconPositions) {
+    if (cx >= pos.x && cx <= pos.x + pos.size && cy >= pos.y && cy <= pos.y + pos.size) {
+      const sk = pos.icon;
+      if (!sk.tip) continue;
+      const lines = sk.tip.split('\n');
+      const html = `
+        <div style="font-size:22px;text-align:center;margin-bottom:4px;">${sk.e}</div>
+        <div style="font-size:13px;font-weight:700;color:${sk.c||'#d8e4f0'};margin-bottom:4px;text-align:center;">${lines[0]}</div>
+        ${lines.slice(1).map(l=>`<div style="color:#8aacbe;font-size:11px;">${l}</div>`).join('')}
+      `;
+      _showTooltipAt(html, (sk.c||'#4a9eff')+'99', e.clientX, e.clientY);
+      return;
+    }
+  }
+
+  // 2) 시너지 pills
+  const synPositions = bt._synHUDPos || [];
+  for (const pos of synPositions) {
+    if (cx >= pos.x && cx <= pos.x + pos.w && cy >= pos.y && cy <= pos.y + pos.h) {
+      const syn = pos.syn;
+      const html = `
+        <div style="font-size:13px;font-weight:700;color:${syn.color};margin-bottom:4px;">${syn.emoji} ${syn.name}</div>
+        <div style="color:#8aacbe;font-size:11px;">${syn.desc||'시너지 효과 활성화'}</div>
+        ${syn.requires ? `<div style="color:#5a8aaa;font-size:10px;margin-top:4px;">조합: ${syn.requires.join(' + ')}</div>` : ''}
+      `;
+      _showTooltipAt(html, syn.color+'88', e.clientX, e.clientY);
+      return;
+    }
+  }
+
+  // 3) 유물 바
+  const relicPositions = bt._relicHUDPos || [];
+  for (const pos of relicPositions) {
+    if (cx >= pos.x && cx <= pos.x + pos.size && cy >= pos.y && cy <= pos.y + pos.size) {
+      const r = pos.relic;
+      const TIER_LABEL = {common:'일반', uncommon:'희귀', rare:'전설'};
+      const TIER_COL   = {common:'#7a8a9a', uncommon:'#4a9eff', rare:'#c9a84c'};
+      const html = `
+        <div style="font-size:24px;text-align:center;margin-bottom:4px;">${r.emoji}</div>
+        <div style="font-size:10px;color:${TIER_COL[r.tier]||'#aaa'};text-align:center;letter-spacing:2px;margin-bottom:4px;">
+          ${TIER_LABEL[r.tier]||r.tier}
+        </div>
+        <div style="font-size:13px;font-weight:700;color:#f0d080;text-align:center;margin-bottom:6px;">${r.name}</div>
+        <div style="color:#8aacbe;font-size:11px;">${r.desc}</div>
+      `;
+      _showTooltipAt(html, r.color+'88', e.clientX, e.clientY);
+      return;
+    }
+  }
+
+  _hideTooltip();
 });
 
 gameCanvas.addEventListener('mouseleave', () => {
   mousePos.active = false;
+  _hideTooltip();
 });
 
 // 우클릭: 기본 메뉴 방지 + HUD 확장/축소 토글
@@ -17989,71 +18065,7 @@ function _hideTooltip() {
   if (_hudTooltipEl) { _hudTooltipEl.style.display = 'none'; }
 }
 
-gameCanvas.addEventListener('mousemove', (e) => {
-  if (!bt || gs.screen !== '__battle__') { _hideTooltip(); return; }
-
-  const rect = gameCanvas.getBoundingClientRect();
-  const scaleX = 800 / rect.width;
-  const scaleY = 800 / rect.height;
-  const cx = (e.clientX - rect.left) * scaleX;
-  const cy = (e.clientY - rect.top)  * scaleY;
-
-  // 1) 스킬 아이콘 바 (specialIcons + statIcons)
-  const iconPositions = bt._iconHUDPos || [];
-  for (const pos of iconPositions) {
-    if (cx >= pos.x && cx <= pos.x + pos.size && cy >= pos.y && cy <= pos.y + pos.size) {
-      const sk = pos.icon;
-      if (!sk.tip) continue;
-      const lines = sk.tip.split('\n');
-      const html = `
-        <div style="font-size:22px;text-align:center;margin-bottom:4px;">${sk.e}</div>
-        <div style="font-size:13px;font-weight:700;color:${sk.c||'#d8e4f0'};margin-bottom:4px;text-align:center;">${lines[0]}</div>
-        ${lines.slice(1).map(l=>`<div style="color:#8aacbe;font-size:11px;">${l}</div>`).join('')}
-      `;
-      _showTooltipAt(html, (sk.c||'#4a9eff')+'99', e.clientX, e.clientY);
-      return;
-    }
-  }
-
-  // 2) 시너지 pills
-  const synPositions = bt._synHUDPos || [];
-  for (const pos of synPositions) {
-    if (cx >= pos.x && cx <= pos.x + pos.w && cy >= pos.y && cy <= pos.y + pos.h) {
-      const syn = pos.syn;
-      const html = `
-        <div style="font-size:13px;font-weight:700;color:${syn.color};margin-bottom:4px;">${syn.emoji} ${syn.name}</div>
-        <div style="color:#8aacbe;font-size:11px;">${syn.desc||'시너지 효과 활성화'}</div>
-        ${syn.requires ? `<div style="color:#5a8aaa;font-size:10px;margin-top:4px;">조합: ${syn.requires.join(' + ')}</div>` : ''}
-      `;
-      _showTooltipAt(html, syn.color+'88', e.clientX, e.clientY);
-      return;
-    }
-  }
-
-  // 3) 유물 바
-  const relicPositions = bt._relicHUDPos || [];
-  for (const pos of relicPositions) {
-    if (cx >= pos.x && cx <= pos.x + pos.size && cy >= pos.y && cy <= pos.y + pos.size) {
-      const r = pos.relic;
-      const TIER_LABEL = {common:'일반', uncommon:'희귀', rare:'전설'};
-      const TIER_COL   = {common:'#7a8a9a', uncommon:'#4a9eff', rare:'#c9a84c'};
-      const html = `
-        <div style="font-size:24px;text-align:center;margin-bottom:4px;">${r.emoji}</div>
-        <div style="font-size:10px;color:${TIER_COL[r.tier]||'#aaa'};text-align:center;letter-spacing:2px;margin-bottom:4px;">
-          ${TIER_LABEL[r.tier]||r.tier}
-        </div>
-        <div style="font-size:13px;font-weight:700;color:#f0d080;text-align:center;margin-bottom:6px;">${r.name}</div>
-        <div style="color:#8aacbe;font-size:11px;">${r.desc}</div>
-      `;
-      _showTooltipAt(html, r.color+'88', e.clientX, e.clientY);
-      return;
-    }
-  }
-
-  _hideTooltip();
-});
-
-gameCanvas.addEventListener('mouseleave', _hideTooltip);
+// (중복 제거됨: mousemove 리스너는 위에서 통합됨)
 
 // 반응형 — 게임 캔버스는 화면 최대한 활용
 function resizeGame(){
