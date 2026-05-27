@@ -4139,16 +4139,20 @@ function showTutorial() {
         </button>
       </div>`;
 
-    document.getElementById('tutNextBtn').onclick = () => {
-      cur++;
-      if (cur >= steps.length) {
-        ov.remove();
-        meta.tutorialDone = true;
-        saveMeta();
-      } else {
-        renderStep();
-      }
-    };
+    // ov가 아직 DOM에 추가되지 않았을 수 있으므로 ov.querySelector 사용
+    const tutBtn = ov.querySelector('#tutNextBtn');
+    if (tutBtn) {
+      tutBtn.onclick = () => {
+        cur++;
+        if (cur >= steps.length) {
+          ov.remove();
+          meta.tutorialDone = true;
+          saveMeta();
+        } else {
+          renderStep();
+        }
+      };
+    }
   }
 
   // 인라인 keyframe (한 번만 추가)
