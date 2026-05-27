@@ -13314,13 +13314,15 @@ function drawHUD(ctx) {
     ctx.restore();
   }
 
+  // ── 공통 변수 (확장/콤팩트 모드 모두에서 사용) ──
+  const iconSize = 38, gap = 5;
+  const iconBarH = iconSize + 14;
+  const sy0 = W - PAD - iconSize - 2;
+
   if (_exp) {
     // ══════════════════════════════════════════
     //  확장 모드 — 풀 상세 HUD
     // ══════════════════════════════════════════
-    const iconSize = 38, gap = 5;
-    const iconBarH = iconSize + 14;
-    const sy0 = W - PAD - iconSize - 2;
 
     function drawIconBarExp(icons, x0) {
       if (icons.length === 0) return;
