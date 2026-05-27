@@ -8491,6 +8491,7 @@ let bt = {}; // battle state
 let battleAnimId = null;
 const keys = {};
 let joystick = { active:false, startX:0, startY:0, dx:0, dy:0 };
+let mousePos = { x: 400, y: 400, active: false }; // 마우스 위치 추적
 
 function playSound(f,d,t='sine',v=0.07) {
   try {
@@ -11224,6 +11225,15 @@ function updatePlayer() {
   if(keys['ArrowLeft']||keys['a']||keys['A']) mx--;
   if(keys['ArrowRight']||keys['d']||keys['D']) mx++;
   if(joystick.active) { const n=Math.hypot(joystick.dx,joystick.dy); if(n>5){mx=joystick.dx/50;my=joystick.dy/50;} }
+  // 마우스 기반 이동 (키보드/조이스틱과 함께 작동)
+  if(mousePos.active) {
+    const dx = mousePos.x - p.x, dy = mousePos.y - p.y;
+    const dist = Math.hypot(dx, dy);
+    if(dist > 10) { // 너무 가까우면 움직이지 않음
+      mx += dx / dist * 0.5;
+      my += dy / dist * 0.5;
+    }
+  }
   p._isMoving = !!(mx||my); // 운동량 증폭기 추적
   if(mx||my) {
     const len=Math.hypot(mx,my);
@@ -17852,6 +17862,25 @@ document.addEventListener('keydown',e=>{
   }
 });
 document.addEventListener('keyup',e=>keys[e.key]=false);
+
+// ── 마우스 움직임 추적 (게임 중 캐릭터가 마우스를 따라감) ──
+document.addEventListener('mousemove', e => {
+  if (gs.screen === '__battle__' && bt && !bt.won && !bt.paused) {
+    const rect = gameCanvas.getBoundingClientRect();
+    const scX = 800 / rect.width, scY = 800 / rect.height;
+    mousePos.x = (e.clientX - rect.left) * scX;
+    mousePos.y = (e.clientY - rect.top) * scY;
+    mousePos.active = true;
+  }
+});
+
+document.addEventListener('mouseleave', () => {
+  mousePos.active = false;
+});
+
+gameCanvas.addEventListener('mouseup', () => {
+  mousePos.active = false;
+});
 
 // 우클릭: 기본 메뉴 방지 + HUD 확장/축소 토글
 gameCanvas.addEventListener('contextmenu', e => {
