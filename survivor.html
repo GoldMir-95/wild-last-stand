@@ -15582,6 +15582,7 @@ function toggleBattlePause() {
     closeBattlePause(); return;
   }
   bt.paused = true;
+  const isMobile = window.innerWidth < 520; // 맨 앞으로 옮김
   const p = gs.player, s = gs.skills;
   const syns = getActiveSynergies();
   const nearSyns = (() => {
@@ -15611,7 +15612,6 @@ function toggleBattlePause() {
     : '';
 
   const speedMult = bt.speedMult || 1;
-  const isMobile = window.innerWidth < 520;
 
   const ov = document.createElement('div');
   ov.id = '_pauseOverlay';
