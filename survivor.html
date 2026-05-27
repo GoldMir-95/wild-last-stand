@@ -15582,7 +15582,7 @@ function toggleBattlePause() {
     closeBattlePause(); return;
   }
   bt.paused = true;
-  const isMobile = window.innerWidth < 520; // 맨 앞으로 옮김
+  const _pauseIsMobile = window.innerWidth < 520; // 다른 이름으로 변경 (전역 변수 충돌 방지)
   const p = gs.player, s = gs.skills;
   const syns = getActiveSynergies();
   const nearSyns = (() => {
@@ -15596,12 +15596,12 @@ function toggleBattlePause() {
 
   // 룬: 모바일에서 더 큰 폰트, 더 많은 여백
   const deckHtml = gs.deck.length
-    ? gs.deck.map(c=>`<span title="${c.name}" style="display:inline-flex;align-items:center;gap:3px;background:${RARITY_COL[c.rarity]||'#333'}18;border:1px solid ${RARITY_COL[c.rarity]||'#333'}44;border-radius:6px;padding:${isMobile ? '3px 8px' : '2px 6px'};font-size:${isMobile ? '13px' : '11px'};color:${RARITY_COL[c.rarity]||'#aaa'}">${c.emoji} <span style="color:#c8d8e8;font-size:${isMobile ? '11px' : '10px'}">${c.name}${c._upgraded?'<span style="color:#f0c050">+</span>':''}</span></span>`).join('')
+    ? gs.deck.map(c=>`<span title="${c.name}" style="display:inline-flex;align-items:center;gap:3px;background:${RARITY_COL[c.rarity]||'#333'}18;border:1px solid ${RARITY_COL[c.rarity]||'#333'}44;border-radius:6px;padding:${_pauseIsMobile ? '3px 8px' : '2px 6px'};font-size:${_pauseIsMobile ? '13px' : '11px'};color:${RARITY_COL[c.rarity]||'#aaa'}">${c.emoji} <span style="color:#c8d8e8;font-size:${_pauseIsMobile ? '11px' : '10px'}">${c.name}${c._upgraded?'<span style="color:#f0c050">+</span>':''}</span></span>`).join('')
     : '<span style="color:#7a8aaa;font-size:11px">룬 없음</span>';
 
   // 렐릭: 모바일에서 그리드 배치 (2-3열), 더 체계적인 배치
   const relicHtml = gs.relics.length
-    ? `<div style="display:grid;grid-template-columns:repeat(${isMobile ? '3' : '5'},1fr);gap:${isMobile ? '6px' : '8px'};width:100%;">${gs.relics.map(r=>`<div style="text-align:center;" title="${r.name}: ${r.desc}"><span style="font-size:${isMobile ? '16px' : '20px'};cursor:help;display:block;padding:4px;border-radius:6px;transition:all 0.15s;background:rgba(255,255,255,0.03);">${r.emoji}</span><div style="font-size:${isMobile ? '8px' : '9px'};color:#5a7a9a;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.name}</div></div>`).join('')}</div>`
+    ? `<div style="display:grid;grid-template-columns:repeat(${_pauseIsMobile ? '3' : '5'},1fr);gap:${_pauseIsMobile ? '6px' : '8px'};width:100%;">${gs.relics.map(r=>`<div style="text-align:center;" title="${r.name}: ${r.desc}"><span style="font-size:${_pauseIsMobile ? '16px' : '20px'};cursor:help;display:block;padding:4px;border-radius:6px;transition:all 0.15s;background:rgba(255,255,255,0.03);">${r.emoji}</span><div style="font-size:${_pauseIsMobile ? '8px' : '9px'};color:#5a7a9a;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.name}</div></div>`).join('')}</div>`
     : '<span style="color:#7a8aaa;font-size:11px">아티팩트 없음</span>';
 
   const synHtml = syns.length
@@ -15617,52 +15617,52 @@ function toggleBattlePause() {
   ov.id = '_pauseOverlay';
   ov.style.cssText = 'position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;background:rgba(2,4,12,0.88);backdrop-filter:blur(4px);';
   ov.innerHTML = `
-    <div style="width:${isMobile ? 'min(360px, 96vw)' : 'min(440px, 96vw)'};max-height:90vh;overflow-y:auto;padding:${isMobile ? '18px' : '24px'};background:linear-gradient(160deg,#0a1428,#0e1e3a);border:1px solid rgba(100,160,255,0.2);border-radius:20px;box-shadow:0 0 60px rgba(0,0,0,0.8);">
-      <div style="text-align:center;margin-bottom:${isMobile ? '12px' : '18px'};">
-        <div style="font-family:'Cinzel',serif;font-size:${isMobile ? '18px' : '22px'};color:#d8e4f0;margin-bottom:${isMobile ? '2px' : '4px'};">${t('⏸ 일시정지', '⏸ Paused')}</div>
-        <div style="font-size:${isMobile ? '10px' : '11px'};color:#5a7a9a;letter-spacing:1px;line-height:1.4;">ACT ${gs.act} · WAVE ${bt.wave}/${bt.wavesTotal} · 처치 ${p.kills}</div>
+    <div style="width:${_pauseIsMobile ? 'min(360px, 96vw)' : 'min(440px, 96vw)'};max-height:90vh;overflow-y:auto;padding:${_pauseIsMobile ? '18px' : '24px'};background:linear-gradient(160deg,#0a1428,#0e1e3a);border:1px solid rgba(100,160,255,0.2);border-radius:20px;box-shadow:0 0 60px rgba(0,0,0,0.8);">
+      <div style="text-align:center;margin-bottom:${_pauseIsMobile ? '12px' : '18px'};">
+        <div style="font-family:'Cinzel',serif;font-size:${_pauseIsMobile ? '18px' : '22px'};color:#d8e4f0;margin-bottom:${_pauseIsMobile ? '2px' : '4px'};">${t('⏸ 일시정지', '⏸ Paused')}</div>
+        <div style="font-size:${_pauseIsMobile ? '10px' : '11px'};color:#5a7a9a;letter-spacing:1px;line-height:1.4;">ACT ${gs.act} · WAVE ${bt.wave}/${bt.wavesTotal} · 처치 ${p.kills}</div>
       </div>
 
       <!-- 핵심 스탯 (모바일: 2열, 데스크톱: 3열) -->
-      <div style="display:grid;grid-template-columns:${isMobile ? '1fr 1fr' : '1fr 1fr 1fr'};gap:${isMobile ? '6px' : '8px'};margin-bottom:${isMobile ? '12px' : '16px'};">
+      <div style="display:grid;grid-template-columns:${_pauseIsMobile ? '1fr 1fr' : '1fr 1fr 1fr'};gap:${_pauseIsMobile ? '6px' : '8px'};margin-bottom:${_pauseIsMobile ? '12px' : '16px'};">
         ${[
           {l:'HP', v:`${Math.ceil(p.hp)}/${p.maxHp}`, c: p.hp/p.maxHp<0.3?'#e05050':p.hp/p.maxHp<0.6?'#f8a030':'#4ecf7a'},
           {l:'골드', v:`🪙 ${gs.gold}`, c:'#c9a84c'},
           {l:'속도', v:`${speedMult}x`, c:speedMult>1?'#f8e030':'#8aa0b8'},
-        ].map(x=>`<div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:${isMobile ? '8px' : '10px'};text-align:center;">
-          <div style="font-size:${isMobile ? '8px' : '9px'};color:#4a6a8a;letter-spacing:1px;margin-bottom:${isMobile ? '3px' : '4px'}">${x.l}</div>
-          <div style="font-size:${isMobile ? '13px' : '15px'};font-weight:800;color:${x.c}">${x.v}</div>
+        ].map(x=>`<div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:${_pauseIsMobile ? '8px' : '10px'};text-align:center;">
+          <div style="font-size:${_pauseIsMobile ? '8px' : '9px'};color:#4a6a8a;letter-spacing:1px;margin-bottom:${_pauseIsMobile ? '3px' : '4px'}">${x.l}</div>
+          <div style="font-size:${_pauseIsMobile ? '13px' : '15px'};font-weight:800;color:${x.c}">${x.v}</div>
         </div>`).join('')}
       </div>
 
       <!-- 시너지 현황 -->
       ${(synHtml||nearHtml) ? `
-      <div style="margin-bottom:${isMobile ? '10px' : '14px'};">
-        <div style="font-size:${isMobile ? '9px' : '10px'};color:#4a6a8a;letter-spacing:2px;margin-bottom:${isMobile ? '6px' : '8px'};">⚡ 시너지</div>
+      <div style="margin-bottom:${_pauseIsMobile ? '10px' : '14px'};">
+        <div style="font-size:${_pauseIsMobile ? '9px' : '10px'};color:#4a6a8a;letter-spacing:2px;margin-bottom:${_pauseIsMobile ? '6px' : '8px'};">⚡ 시너지</div>
         <div style="display:flex;flex-wrap:wrap;gap:5px;">${synHtml}${nearHtml}</div>
       </div>` : ''}
 
       <!-- 아티팩트 (모바일: 3열 그리드, 데스크톱: 5열 그리드) -->
       ${gs.relics.length ? `
-      <div style="margin-bottom:${isMobile ? '10px' : '14px'};">
-        <div style="font-size:${isMobile ? '9px' : '10px'};color:#4a6a8a;letter-spacing:2px;margin-bottom:${isMobile ? '6px' : '8px'};">💎 아티팩트 (${gs.relics.length})</div>
+      <div style="margin-bottom:${_pauseIsMobile ? '10px' : '14px'};">
+        <div style="font-size:${_pauseIsMobile ? '9px' : '10px'};color:#4a6a8a;letter-spacing:2px;margin-bottom:${_pauseIsMobile ? '6px' : '8px'};">💎 아티팩트 (${gs.relics.length})</div>
         <div>${relicHtml}</div>
       </div>` : ''}
 
       <!-- 룬 (모바일: 더 큰 폰트, 더 많은 여백) -->
-      <div style="margin-bottom:${isMobile ? '16px' : '20px'};">
-        <div style="font-size:${isMobile ? '9px' : '10px'};color:#4a6a8a;letter-spacing:2px;margin-bottom:${isMobile ? '6px' : '8px'};">🔮 룬 (${gs.deck.length}장)</div>
-        <div style="display:flex;flex-wrap:wrap;gap:${isMobile ? '6px' : '5px'};">${deckHtml}</div>
+      <div style="margin-bottom:${_pauseIsMobile ? '16px' : '20px'};">
+        <div style="font-size:${_pauseIsMobile ? '9px' : '10px'};color:#4a6a8a;letter-spacing:2px;margin-bottom:${_pauseIsMobile ? '6px' : '8px'};">🔮 룬 (${gs.deck.length}장)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:${_pauseIsMobile ? '6px' : '5px'};">${deckHtml}</div>
       </div>
 
       <!-- 버튼 (모바일: 세로 배치) -->
-      <div style="display:${isMobile ? 'flex;flex-direction:column' : 'flex'};gap:${isMobile ? '6px' : '8px'};">
-        <button onclick="closeBattlePause()" style="flex:${isMobile ? '1' : '2'};padding:${isMobile ? '10px' : '12px'};font-size:${isMobile ? '12px' : '14px'};font-weight:800;border:none;cursor:pointer;border-radius:12px;font-family:'Noto Sans KR',sans-serif;background:linear-gradient(135deg,#3dcc5a,#28a845);color:#fff;box-shadow:0 3px 0 #1a7a32;">${t('▶ 계속하기', '▶ Resume')}</button>
-        <button onclick="toggleBattleSpeed()" style="flex:${isMobile ? '1' : '1'};padding:${isMobile ? '10px' : '12px'};font-size:${isMobile ? '11px' : '12px'};font-weight:700;border:1px solid rgba(255,200,0,0.3);cursor:pointer;border-radius:12px;font-family:'Noto Sans KR',sans-serif;background:rgba(255,200,0,0.08);color:#f8e030;" id="_pauseSpeedBtn">${speedMult>1?'⚡ 2x':'▷ 배속'}</button>
-        <button onclick="closeBattlePause();showGameOver(false);" style="flex:${isMobile ? '1' : '1'};padding:${isMobile ? '10px' : '12px'};font-size:${isMobile ? '11px' : '12px'};font-weight:700;border:1px solid rgba(224,80,80,0.3);cursor:pointer;border-radius:12px;font-family:'Noto Sans KR',sans-serif;background:rgba(224,80,80,0.06);color:#e05050;">${t('포기', 'Give Up')}</button>
+      <div style="display:${_pauseIsMobile ? 'flex;flex-direction:column' : 'flex'};gap:${_pauseIsMobile ? '6px' : '8px'};">
+        <button onclick="closeBattlePause()" style="flex:${_pauseIsMobile ? '1' : '2'};padding:${_pauseIsMobile ? '10px' : '12px'};font-size:${_pauseIsMobile ? '12px' : '14px'};font-weight:800;border:none;cursor:pointer;border-radius:12px;font-family:'Noto Sans KR',sans-serif;background:linear-gradient(135deg,#3dcc5a,#28a845);color:#fff;box-shadow:0 3px 0 #1a7a32;">${t('▶ 계속하기', '▶ Resume')}</button>
+        <button onclick="toggleBattleSpeed()" style="flex:${_pauseIsMobile ? '1' : '1'};padding:${_pauseIsMobile ? '10px' : '12px'};font-size:${_pauseIsMobile ? '11px' : '12px'};font-weight:700;border:1px solid rgba(255,200,0,0.3);cursor:pointer;border-radius:12px;font-family:'Noto Sans KR',sans-serif;background:rgba(255,200,0,0.08);color:#f8e030;" id="_pauseSpeedBtn">${speedMult>1?'⚡ 2x':'▷ 배속'}</button>
+        <button onclick="closeBattlePause();showGameOver(false);" style="flex:${_pauseIsMobile ? '1' : '1'};padding:${_pauseIsMobile ? '10px' : '12px'};font-size:${_pauseIsMobile ? '11px' : '12px'};font-weight:700;border:1px solid rgba(224,80,80,0.3);cursor:pointer;border-radius:12px;font-family:'Noto Sans KR',sans-serif;background:rgba(224,80,80,0.06);color:#e05050;">${t('포기', 'Give Up')}</button>
       </div>
-      <button onclick="saveRun();showToast(t('💾 저장 완료!','💾 Run Saved!'),1200);goToLobby(null,true);" style="width:100%;margin-top:${isMobile ? '6px' : '8px'};padding:${isMobile ? '9px' : '11px'};font-size:${isMobile ? '12px' : '13px'};font-weight:700;border:1px solid rgba(201,168,76,0.35);cursor:pointer;border-radius:12px;font-family:'Noto Sans KR',sans-serif;background:rgba(201,168,76,0.08);color:#c9a84c;">${t('💾 저장 후 로비로', '💾 Save & Lobby')}</button>
-      <div style="text-align:center;margin-top:${isMobile ? '6px' : '8px'};font-size:${isMobile ? '8px' : '10px'};color:#7a9abc;line-height:1.4;">${t('ESC / P — 재개 &nbsp;|&nbsp; F — 배속', 'ESC / P — Resume &nbsp;|&nbsp; F — Speed')}</div>
+      <button onclick="saveRun();showToast(t('💾 저장 완료!','💾 Run Saved!'),1200);goToLobby(null,true);" style="width:100%;margin-top:${_pauseIsMobile ? '6px' : '8px'};padding:${_pauseIsMobile ? '9px' : '11px'};font-size:${_pauseIsMobile ? '12px' : '13px'};font-weight:700;border:1px solid rgba(201,168,76,0.35);cursor:pointer;border-radius:12px;font-family:'Noto Sans KR',sans-serif;background:rgba(201,168,76,0.08);color:#c9a84c;">${t('💾 저장 후 로비로', '💾 Save & Lobby')}</button>
+      <div style="text-align:center;margin-top:${_pauseIsMobile ? '6px' : '8px'};font-size:${_pauseIsMobile ? '8px' : '10px'};color:#7a9abc;line-height:1.4;">${t('ESC / P — 재개 &nbsp;|&nbsp; F — 배속', 'ESC / P — Resume &nbsp;|&nbsp; F — Speed')}</div>
     </div>`;
   document.body.appendChild(ov);
   setupMobileTooltips();
