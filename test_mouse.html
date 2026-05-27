@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mouse Movement Test</title>
+  <style>
+    body { margin: 0; background: #1a1a1a; color: white; font-family: Arial; }
+    canvas { border: 2px solid white; display: block; margin: 20px; background: #222; }
+    p { margin: 20px; }
+  </style>
+</head>
+<body>
+  <h2>마우스 이동 테스트</h2>
+  <p>마우스를 캔버스 위로 이동하면 녹색 점이 따라가야 합니다.</p>
+  <p id="info">마우스 위치: (400, 400), mousePos.active: false</p>
+  <canvas id="canvas" width="800" height="800"></canvas>
+  
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let mousePos = { x: 400, y: 400, active: false };
+    
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      const scX = 800 / rect.width, scY = 800 / rect.height;
+      mousePos.x = (e.clientX - rect.left) * scX;
+      mousePos.y = (e.clientY - rect.top) * scY;
+      mousePos.active = true;
+      document.getElementById('info').textContent = 
+        `마우스 위치: (${Math.floor(mousePos.x)}, ${Math.floor(mousePos.y)}), mousePos.active: ${mousePos.active}`;
+    });
+    
+    canvas.addEventListener('mouseleave', () => {
+      mousePos.active = false;
+      document.getElementById('info').textContent = 
+        `마우스 위치: (${Math.floor(mousePos.x)}, ${Math.floor(mousePos.y)}), mousePos.active: ${mousePos.active}`;
+    });
+    
+    function draw() {
+      ctx.fillStyle = '#222';
+      ctx.fillRect(0, 0, 800, 800);
+      ctx.strokeStyle = '#444';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 800; i += 100) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, 800);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, i);
+        ctx.lineTo(800, i);
+        ctx.stroke();
+      }
+      
+      // Draw player (center)
+      ctx.fillStyle = '#00aaff';
+      ctx.beginPath();
+      ctx.arc(400, 400, 10, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Draw mouse position
+      if (mousePos.active) {
+        ctx.fillStyle = '#00ff00';
+        ctx.beginPath();
+        ctx.arc(mousePos.x, mousePos.y, 15, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw line from player to mouse
+        ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(400, 400);
+        ctx.lineTo(mousePos.x, mousePos.y);
+        ctx.stroke();
+      }
+      
+      requestAnimationFrame(draw);
+    }
+    
+    draw();
+  </script>
+</body>
+</html>
