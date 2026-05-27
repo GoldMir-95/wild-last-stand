@@ -16706,10 +16706,27 @@ document.addEventListener('keydown',e=>{
 
   // ── 전투 중 키보드 단축키 ──
   if (gs.screen === '__battle__' && bt) {
-    // ESC — 일시정지 토글
-    if (e.key === 'Escape') { e.preventDefault(); toggleBattlePause(); return; }
-    // P — 일시정지 토글
-    if (e.key === 'p' || e.key === 'P') { toggleBattlePause(); return; }
+    // ESC — 일시정지 토글 (일시정지 상태에서도 작동)
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      const pauseOv = document.getElementById('_pauseOverlay');
+      if (pauseOv) {
+        closeBattlePause(); // 이미 일시정지 중이면 재개
+      } else {
+        toggleBattlePause(); // 일반 게임 중이면 일시정지
+      }
+      return;
+    }
+    // P — 일시정지 토글 (일시정지 상태에서도 작동)
+    if (e.key === 'p' || e.key === 'P') {
+      const pauseOv = document.getElementById('_pauseOverlay');
+      if (pauseOv) {
+        closeBattlePause(); // 이미 일시정지 중이면 재개
+      } else {
+        toggleBattlePause(); // 일반 게임 중이면 일시정지
+      }
+      return;
+    }
     // F — 속도 배속 토글
     if (e.key === 'f' || e.key === 'F') { toggleBattleSpeed(); return; }
     // Tab — HUD 확장/축소 토글
