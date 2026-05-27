@@ -713,7 +713,7 @@ canvas{display:block;}
 </div>
 
 <!-- 전투 화면 -->
-<canvas id="gameCanvas" width="800" height="800" style="display:none;position:fixed;inset:0;margin:auto;z-index:100;"></canvas>
+<canvas id="gameCanvas" width="800" height="800" style="display:none;position:fixed;inset:0;margin:auto;z-index:100;pointer-events:none;"></canvas>
 
 <!-- 📱 모바일 온스크린 컨트롤 -->
 <div id="mobileControls" style="display:none;position:fixed;inset:0;pointer-events:none;z-index:40;user-select:none;">
@@ -4180,7 +4180,9 @@ function showScreen(id) {
   ['startScreen','mapScreen','cardScreen','deckScreen','shopScreen','restScreen','bossVictoryScreen','gameOverScreen']
     .forEach(s => document.getElementById(s).classList[s===id?'remove':'add']('hidden'));
   const isBattle = (id === '__battle__');
-  document.getElementById('gameCanvas').style.display = isBattle ? 'block' : 'none';
+  const canvas = document.getElementById('gameCanvas');
+  canvas.style.display = isBattle ? 'block' : 'none';
+  canvas.style.pointerEvents = isBattle ? 'auto' : 'none';
   document.getElementById('hud').style.display = isBattle ? 'flex' : 'none';
   document.getElementById('deckBtn').style.display = isBattle ? 'block' : 'none';
   const _pb = document.getElementById('pauseBtn');
