@@ -4931,7 +4931,7 @@ function updateSynergyRow() {
     } else {
       chip.innerHTML = syn.emoji + ' <span class="gb-synergy-progress">' + gotCount + '/' + total + '</span>';
       chip.title = syn.name + ' - 필요: ' + syn.requires.filter(r => !deckIds.has(r)).map(r => {
-        const card = CARDS.find(c => c.id === r);
+        const card = CARD_POOL.find(c => c.id === r);
         return card ? card.emoji : r;
       }).join(', ');
     }
@@ -12492,6 +12492,7 @@ function updateBattle() {
 
 /** 적에게 데미지. 페이즈 전환 중 무적이면 무시. */
 function damageEnemy(e,dmg,isMultiHit=false){
+  if(!e || !e.hp) return; // null/undefined 방어
   if((e._phaseInvincible||0) > 0) return; // 보스 페이즈 전환 중 무적
   if(e.frozen)dmg*=1.5;
   if(gs._relicKineticSurge && gs.player._isMoving) dmg = Math.ceil(dmg * 1.5); // 운동량 증폭기
